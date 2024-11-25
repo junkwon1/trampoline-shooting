@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+scipy = "*"
+numpy = "*"
+pydrake = "*"
+matplotlib = "*"
+ipython = "*"
+drake = "*"
+sympy = "*"
+ffmpeg = "*"
+openh264 = "*"
+importlib = "*"
+pyqt6 = "*"
+tkinter = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
