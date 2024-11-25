@@ -8,13 +8,13 @@ class BotVisualizer:
         self.fig, self.ax = plt.subplots(1, 1, figsize=(8,6))
     def redraw(self, x, ylist, zlist):
         self.ax.clear()
-        bot_width = .5
-        bot_square = patches.Rectangle((x[0]-bot_width/2, x[1]-bot_width/2), bot_width, bot_width, fc='r')
-        self.ax.add_patch(bot_square)
+        bot_diameter = .5
+        bot_circle = patches.Circle((x[0]-bot_diameter/2, x[1]-bot_diameter/2), bot_diameter, color='red',fill=True)
+        self.ax.add_patch(bot_circle)
 
         self.ax.set_xlim(-5, 5)
         self.ax.set_ylim(0,10)
-
+        self.ax.set_aspect('equal')
         self.ax.plot(ylist, zlist)
         
 def create_animation(x, tf):
