@@ -12,6 +12,7 @@ class Bot(object):
         self.dt = 0.1
 
         self.m = 5
+        self.diameter = .5 # robot diameter in m
 
         self.umin = -1
         self.umax = 1

@@ -16,6 +16,18 @@ class BotVisualizer:
         self.ax.set_ylim(0,10)
         self.ax.set_aspect('equal')
         self.ax.plot(ylist, zlist)
+
+class BallVisualizer:
+    # 2D -> x or y and z, testing to see if it bounces right
+    # NOTE NOT DONE
+    def __init__(self):
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(8,6))
+    def redraw(self, x, ylist, zlist):
+        self.ax.clear()
+        self.ax.set_xlim(-5, 5)
+        self.ax.set_ylim(0,10)
+        self.ax.set_aspect('equal')
+        self.ax.plot(ylist, zlist)
         
 def create_animation(x, tf):
     bot_vis = BotVisualizer()
