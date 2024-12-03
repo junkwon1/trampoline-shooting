@@ -21,49 +21,14 @@ class Ball(object):
         self.x0 = x0 # initial state of the ball
         self.x = x0 # current state of the ball
         self.dt = .01 # dt 
-
-    def get_touchdowns(self, horizon):
-        """
-        gets all ball touchdown locations for the finite horizon
-        format is time then state
-        """
-        touchdown_list = []
-        t = 0
-        px = self.x0[0]
-        py = self.x0[1]
-        pz = self.x0[2]
-        vx = self.x0[3]
-        vy = self.x0[4]
-        vz = self.x0[5]
-        dt = self.dt
-
-        while t < horizon:
-            # update position
-            px += vx * dt
-            py += vy * dt
-            pz += vz * dt
-
-            # update velocity
-            vx += 0 
-            vy += 0
-            vz -= self.g * dt
-
-            self.x = np.array([px, py, pz, vx, vy, vz])
-
-            # check if we colllided with ground
-            if pz <= 0:
-                vx, vy, vz = self.bounce() # update velocity according to bounce
-                # add touchdown state and time
-                touchdown = np.array([t, px, py, pz, vx, vy, vz])
-                touchdown_list.append(touchdown)
-            elif self.is_colided(None):
-                pass # currently should never go here 
-            t += self.dt
-        return touchdown_list
     
     def simulate_ball(self, robot_state_list, robot, horizon, simulate_time):
         """
-        given the robot actions over a finite horizon, simulate the ball behavior
+        given the robot actions over a finite horizon, simulate the ball behavior for some desired time
+
+        once the horizon is over, we assume that the velocity of the robot stays constant
+
+        TODO should I manually bound the robot positions after the horizon (so it stops against the theoretical wall)???
         """
         t = 0
         px = self.x0[0]
@@ -115,7 +80,45 @@ class Ball(object):
             zlist.append(pz)
 
         return self.x, xlist, ylist, zlist
+    
+    def get_touchdowns(self, horizon):
+        """
+        gets all ball touchdown locations for the finite horizon
+        format is time then state
+        """
+        touchdown_list = []
+        t = 0
+        px = self.x0[0]
+        py = self.x0[1]
+        pz = self.x0[2]
+        vx = self.x0[3]
+        vy = self.x0[4]
+        vz = self.x0[5]
+        dt = self.dt
 
+        while t < horizon:
+            # update position
+            px += vx * dt
+            py += vy * dt
+            pz += vz * dt
+
+            # update velocity
+            vx += 0 
+            vy += 0
+            vz -= self.g * dt
+
+            self.x = np.array([px, py, pz, vx, vy, vz])
+
+            # check if we colllided with ground
+            if pz <= 0:
+                vx, vy, vz = self.bounce() # update velocity according to bounce
+                # add touchdown state and time
+                touchdown = np.array([t, px, py, pz, vx, vy, vz])
+                touchdown_list.append(touchdown)
+            elif self.is_colided(None):
+                pass # currently should never go here 
+            t += self.dt
+        return touchdown_list
 
     def get_state(self, simulate_time):
         """
@@ -219,6 +222,7 @@ class Ball(object):
 """
 Testing
 """
+
 x0 = np.array([3, 3, 3, 3, -5, 3])
 ball = Ball(x0)
 ball.plot_traj(20)
