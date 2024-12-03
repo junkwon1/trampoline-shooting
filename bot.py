@@ -88,6 +88,22 @@ class Bot(object):
         # prog.AddPolynomialCost(1 - error)
         # prog.AddLinearCost(resultant_velo)
 
+    def add_switch_behavior_cost(self, prog, x, u, N, ball_x):
+        """
+        Encode a running cost that encodes the following behavior:
+
+        if the ball doesn't have enough height to reach the goal in z, the robot should try to cancel out its
+        in-plane velocities
+
+        if the ball does have enough height to reach the goal in z, the robot should try to hit the ball
+        towards the goal
+
+        the ball's peak height should be a final cost? this is a switch... might not be easy to do and
+        might have to use hybrid mode methods potentially
+        """
+
+        
+
     def compute_feedback(self, x_cur, ball_x, desired_traj_norm, N): 
         prog = MathematicalProgram()
         x = np.zeros((N, 4), dtype="object")
