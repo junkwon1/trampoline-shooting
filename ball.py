@@ -34,7 +34,7 @@ class Ball(object):
         discriminant = b**2 - 4*a*c
         
         if discriminant < 0:
-            return None  # failed
+            return 0
         
         # Calculate the two roots
         t1 = (-b + math.sqrt(discriminant)) / (2 * a)
@@ -279,13 +279,13 @@ class Ball(object):
 """
 Testing
 """
-x0 = np.array([0, 0, 0, -5, -5, -10])
-robot_state = np.array([0, 0, 0, 10, 10, 10])
-ball = Ball(x0)
-print('robot_bounce: ', ball.robot_bounce(robot_state))
-x0 = np.array([0, 0, 0, -5, -5, -10])
-ball = Ball(x0)
-print('floor_bounce: ', ball.bounce())
+# x0 = np.array([0, 0, 0, -5, -5, -10])
+# robot_state = np.array([0, 0, 0, 10, 10, 10])
+# ball = Ball(x0)
+# print('robot_bounce: ', ball.robot_bounce(robot_state))
+# x0 = np.array([0, 0, 0, -5, -5, -10])
+# ball = Ball(x0)
+# print('floor_bounce: ', ball.bounce())
 
 
 # x0 = np.array([3, 3, 3, 3, -5, 3])

@@ -9,15 +9,15 @@ class Bot(object):
         #ball_x is the state of the ball once it will touch down again (at t = tf)
         #desired_traj_norm is a unit vector [y, z]^T that represents direction from ball to basket
 
-        self.dt = 0.1
+        self.dt = 0.01
 
         self.goal = np.array([3, 3, 10]) # change to desired goal location!
 
         self.m = 5
         self.diameter = .5 # robot diameter in m
 
-        self.umin = -1
-        self.umax = 1
+        self.umin = -5
+        self.umax = 5
 
         self.n_x = 4
         self.n_u = 2
@@ -25,18 +25,18 @@ class Bot(object):
         self.Q = np.zeros((6,6))
         self.Q[0,0] = 10
         self.Q[1,1] = 10
-        self.Q[2.2] = 10
+        self.Q[2,2] = 10
 
         self.R = 0.5*np.identity(3)
 
         A = np.zeros((6,6))
-        A[0, 3] = 1 # NEED HELP HERE
+        A[0, 3] = 1
         A[1, 4] = 1
         A[2, 5] = 1
         self.A = A
 
         B = np.zeros((6,3))
-        B[3,0] = 1/self.m # NEED HELP HERE 
+        B[3,0] = 1/self.m 
         B[4,1] = 1/self.m
         B[5,2] = 1/self.m
         self.B = B
@@ -129,12 +129,12 @@ class Bot(object):
             # put velocity in "error" coords
             # robot must travel faster than the ball for this to cancel out
             v_e = (x[-1][3:5] * ball.mu_robot) - (-ball_vel_in_plane)
-            velocity_cancelling_cost = v_e @ np.identity(2) @ v_e
+            velocity_cancelling_cost = v_e.T @ np.identity(2) @ v_e
             prog.AddQuadraticCost(velocity_cancelling_cost)
 
             # NOTE: final cost on increasing ball z velocity to be sufficient
             vz_req = ball.x[2] + ((2 * 9.81 * goal_z) **.5 - (ball.COR * ball.x[2])) / ball.COR # this is the desired vz of robot NOTE COUDL BE WRONG
-            z_velocity_cost = (x[-1][5] - vz_req) @ np.identity(1) @ (x[-1][5] - vz_req) # scale differently here?
+            z_velocity_cost = (x[-1][5] - vz_req) * (x[-1][5] - vz_req) # scale differently here?
             prog.AddQuadraticCost(z_velocity_cost)
 
         else:
@@ -150,7 +150,7 @@ class Bot(object):
             
             # still probably want a final cost on increasing ball z velocity to be sufficient
             vz_req = ball.x[2] + ((2 * 9.81 * goal_z) **.5 - (ball.COR * ball.x[2])) / ball.COR # this is the desired vz of robot NOTE COUDL BE WRONG
-            z_velocity_cost = (x[-1][5] - vz_req) @ np.identity(1) @ (x[-1][5] - vz_req) # scale differently here?
+            z_velocity_cost = (x[-1][5] - vz_req) * (x[-1][5] - vz_req) # scale differently here?
             prog.AddQuadraticCost(z_velocity_cost)
 
 
@@ -170,12 +170,13 @@ class Bot(object):
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
         self.add_running_cost(prog, x, u, N, ball)
+        #self.add_switch_behavior_cost(prog, x, u, N, ball)
         #self.add_final_cost(prog, x, ball_x, desired_traj_norm, N)
 
-        solver = SnoptSolver()
+        #solver = SnoptSolver()
+        solver = OsqpSolver()
         result = solver.Solve(prog)
 
         u_res = result.GetSolution(u[0])
+        #print(u_res)
         return u_res
-        # for i in range(N-1):
-        #     print(result.GetSolution(u[i]))

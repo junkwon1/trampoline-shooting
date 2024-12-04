@@ -1,13 +1,13 @@
 import matplotlib.pyplot as plt
-from matplotlib import patches
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import matplotlib.animation as animation
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 
 class BotBallVisualizer:
     def __init__(self, robot_x, ball_x, goal):
         self.fig = plt.figure()
-        self.fig, self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax = self.fig.add_subplot(111, projection='3d')
 
         self.robot_x = robot_x
 
@@ -22,8 +22,13 @@ class BotBallVisualizer:
         curr_ball_x = self.ball_x[i]
         # plot the robot
         bot_diameter = .5
-        bot_circle = patches.Circle((curr_robot_x[0], curr_robot_x[1]), bot_diameter / 2, color='red',fill=True)
-        self.ax.add_patch(bot_circle)
+
+        theta = np.linspace(0, 2 * np.pi, 50)
+        center = curr_robot_x[0:2]
+        circle_x = center[0] + bot_diameter/2 * np.cos(theta)
+        circle_y = center[1] + bot_diameter/2 * np.sin(theta)
+        circle_z = np.zeros_like(circle_x)
+        self.ax.add_collection3d(Poly3DCollection([list(zip(circle_x, circle_y, circle_z))], color='red', alpha=0.7))
 
         # plot the ball
         self.ax.plot(curr_ball_x[0], curr_ball_x[1], curr_ball_x[2], 'bo')
@@ -53,4 +58,4 @@ def create_animation(robot_x, ball_x, goal, tf):
     def animate(i):
         vis.redraw(i)
 
-    return animation.FuncAnimation(vis.fig, animate, len(robot_x), interval=tf*1000/len(x))
+    return animation.FuncAnimation(vis.fig, animate, len(robot_x), interval=tf*1000/len(robot_x))
