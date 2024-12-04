@@ -17,6 +17,7 @@ class Ball(object):
         self.m = .624
         self.COR = .758 # COR is for normal velocities
         self.mu = .1 # mu is for tangential velocities
+        self.mu_robot = .5
         self.g = 9.81 # gravity
         self.x0 = x0 # initial state of the ball
         self.x = x0 # current state of the ball
@@ -184,11 +185,12 @@ class Ball(object):
         v_t = rel_v - v_n
 
         # do collision
-        v_n_new = -self.COR * v_n
-        v_t_new = (1-self.mu) * v_t
+        v_n_new = self.COR * (robot_state[2]- self.x[2]) + robot_state[2]
+        v_t_new = (1-self.mu_robot) * v_t
 
         # Update ball velocity
-        self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
+        # self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
+        self.x[3:] = v_n_new + v_t_new + robot_state[3:]
 
         return self.x[3], self.x[4], self.x[5]
     
@@ -222,10 +224,18 @@ class Ball(object):
 """
 Testing
 """
-
-x0 = np.array([3, 3, 3, 3, -5, 3])
+x0 = np.array([0, 0, 0, -5, -5, -10])
+robot_state = np.array([0, 0, 0, 10, 10, 10])
 ball = Ball(x0)
-ball.plot_traj(20)
+print('robot_bounce: ', ball.robot_bounce(robot_state))
+x0 = np.array([0, 0, 0, -5, -5, -10])
+ball = Ball(x0)
+print('floor_bounce: ', ball.bounce())
+
+
+# x0 = np.array([3, 3, 3, 3, -5, 3])
+# ball = Ball(x0)
+# ball.plot_traj(20)
 
     
     
