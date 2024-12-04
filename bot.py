@@ -30,13 +30,15 @@ class Bot(object):
         self.R = 0.5*np.identity(3)
 
         A = np.zeros((6,6))
-        A[0, 2] = 1 # NEED HELP HERE
-        A[1, 3] = 1
+        A[0, 3] = 1 # NEED HELP HERE
+        A[1, 4] = 1
+        A[2, 5] = 1
         self.A = A
 
         B = np.zeros((6,3))
-        B[2,0] = 1/self.m # NEED HELP HERE 
-        B[3,1] = 1/self.m
+        B[3,0] = 1/self.m # NEED HELP HERE 
+        B[4,1] = 1/self.m
+        B[5,2] = 1/self.m
         self.B = B
 
     def add_initial_constraint(self, prog, x, x_cur):
@@ -154,7 +156,7 @@ class Bot(object):
 
 
 
-    def compute_feedback(self, x_cur, ball_x, desired_traj_norm, N): 
+    def compute_feedback(self, x_cur, ball_x, N): 
         prog = MathematicalProgram()
         x = np.zeros((N, 6), dtype="object")
         for i in range(N):
@@ -168,12 +170,12 @@ class Bot(object):
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
         self.add_running_cost(prog, x, u, N, ball_x)
-        self.add_final_cost(prog, x, ball_x, desired_traj_norm, N)
+        #self.add_final_cost(prog, x, ball_x, desired_traj_norm, N)
 
         solver = OsqpSolver()
         result = solver.Solve(prog)
 
-        u_res = np.zeros(2)
+        u_res = np.zeros(3)
         return result.GetSolution(x)
         # for i in range(N-1):
         #     print(result.GetSolution(u[i]))

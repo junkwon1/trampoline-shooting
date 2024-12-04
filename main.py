@@ -10,14 +10,10 @@ from animator import create_animation
 
 bot = bot.Bot()
 
-x0 = np.array([0,0,0,0])
-ball_x = np.array([2, 8, -1, 1])
+x0 = np.array([0,0,0,0,0,0])
+ball_x = np.array([2, 8, 5, 3, 3, 3])
 
-desired_traj = np.array([0, 10]) - ball_x[:2]
-
-desired_traj_norm = desired_traj / np.linalg.norm(desired_traj)
-
-x_vals = bot.compute_feedback(x0, ball_x, desired_traj_norm, 100)
+x_vals = bot.compute_feedback(x0, ball_x, 100)
 y = [x[0] for x in x_vals]
 z = [x[1] for x in x_vals]
 
