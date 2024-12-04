@@ -44,9 +44,7 @@ class Ball(object):
         
         # Return the positive root
         return max(t1, t2)
-
-
-        return t
+    
     def simulate_ball(self, robot, robot_state, dt):
         """
         simulate the ball for given dt amount of time
@@ -104,157 +102,6 @@ class Ball(object):
         vz_final = vz - self.g * t  # Velocity in z-direction changes due to gravity
 
         return np.array([px_final, py_final, pz_final, vx_final, vy_final, vz_final])
-
-
-
-    def simulate_ball_old(self, robot_state_list, robot, horizon, simulate_time):
-        """
-        given the robot actions over a finite horizon, simulate the ball behavior for some desired time
-
-        once the horizon is over, we assume that the velocity of the robot stays constant
-
-        """
-        t = 0
-        px = self.x0[0]
-        py = self.x0[1]
-        pz = self.x0[2]
-        vx = self.x0[3]
-        vy = self.x0[4]
-        vz = self.x0[5]
-        dt = self.dt
-        xlist = []
-        ylist = []
-        zlist = []
-
-        while t < simulate_time:
-            px += vx * dt
-            py += vy * dt
-            pz += vz * dt
-
-            # update velocity
-            vx += 0 
-            vy += 0
-            vz -= self.g * dt
-
-            self.x = np.array([px, py, pz, vx, vy, vz])
-            # check if we colllided with ground or robot
-            if pz <= 0:
-                # determine if we collided with ground or robot
-                if t <= horizon:
-                    # grab robot velocity if within horizon
-                    robot_index = int(t / robot.dt)
-                    robot_state = robot_state_list[robot_index]
-                else:
-                    # if outside of horizon, assume robot kept moving with same velocity it ended with
-                    robot_state = robot_state_list[-1]
-                    robot_state[:3] += robot_state[3:] * (t - horizon)
-
-                if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
-                    # then the ball is within the radius of the robot away, so it collides with the robot
-                    vx, vy, vz = self.robot_bounce(robot_state)
-                else:
-                    vx, vy, vz = self.bounce() # update velocity according to ground bounce
-            elif self.is_colided(None):
-                pass # currently should never go here 
-
-            t += self.dt
-
-            xlist.append(px)
-            ylist.append(py)
-            zlist.append(pz)
-
-        return self.x, xlist, ylist, zlist
-    
-    def get_touchdowns(self, horizon):
-        """
-        gets all ball touchdown locations for the finite horizon
-        format is time then state
-        """
-        touchdown_list = []
-        t = 0
-        px = self.x0[0]
-        py = self.x0[1]
-        pz = self.x0[2]
-        vx = self.x0[3]
-        vy = self.x0[4]
-        vz = self.x0[5]
-        dt = self.dt
-
-        while t < horizon:
-            # update position
-            px += vx * dt
-            py += vy * dt
-            pz += vz * dt
-
-            # update velocity
-            vx += 0 
-            vy += 0
-            vz -= self.g * dt
-
-            self.x = np.array([px, py, pz, vx, vy, vz])
-
-            # check if we colllided with ground
-            if pz <= 0:
-                vx, vy, vz = self.bounce() # update velocity according to bounce
-                # add touchdown state and time
-                touchdown = np.array([t, px, py, pz, vx, vy, vz])
-                touchdown_list.append(touchdown)
-            elif self.is_colided(None):
-                pass # currently should never go here 
-            t += self.dt
-        return touchdown_list
-
-    def get_state(self, simulate_time):
-        """
-        gets the state of the ball at a given time assuming no input from the robot
-
-        t is the total time from the current state
-        """
-        px = self.x0[0]
-        py = self.x0[1]
-        pz = self.x0[2]
-        vx = self.x0[3]
-        vy = self.x0[4]
-        vz = self.x0[5]
-        dt = self.dt
-        xlist = []
-        ylist = []
-        zlist = []
-
-        t = 0
-        while t < simulate_time:
-            # update position
-            px += vx * dt
-            py += vy * dt
-            pz += vz * dt
-
-            # update velocity
-            vx += 0 
-            vy += 0
-            vz -= self.g * dt
-
-            self.x = np.array([px, py, pz, vx, vy, vz])
-
-            # check if we colllided
-            if pz <= 0:
-                vx, vy, vz = self.bounce() # update velocity according to bounce
-            elif self.is_colided(None):
-                pass # currently should never go here 
-
-            t += self.dt
-
-            xlist.append(px)
-            ylist.append(py)
-            zlist.append(pz)
-
-        return self.x, xlist, ylist, zlist
-
-
-    def change_state(self, x):
-        """
-        Changes the initial state of the ball to x
-        """
-        self.x0 = x
     
     def robot_bounce(self, curr_v, robot_state):
         """
@@ -289,9 +136,6 @@ class Ball(object):
         new_v = v_n_new + v_t_new
 
         return new_v[0], new_v[1], new_v[2]
-        
-    def is_colided(self, obstacles):
-        return False
 
     def plot_traj(self, t):
         """
