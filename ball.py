@@ -17,8 +17,8 @@ class Ball(object):
         
         # values approximately for basketball
         self.m = .624
-        #self.COR = .758 # COR is for normal velocities
-        self.COR = .9 # COR is for normal velocities
+        self.COR = .758 # COR is for normal velocities
+        #self.COR = .9 # COR is for normal velocities
 
         self.mu = .1 # mu is for tangential velocities
         self.mu_robot = .5
@@ -84,7 +84,7 @@ class Ball(object):
         self.x = np.array([px, py, pz, vx, vy, vz])
         return self.x
     
-    def simulate_ball_no_update(self, robot, tf, dt):
+    def simulate_ball_no_update(self, tf):
         px = self.x[0]
         py = self.x[1]
         pz = self.x[2]
@@ -92,18 +92,18 @@ class Ball(object):
         vy = self.x[4]
         vz = self.x[5]
 
-        t = 0
-        while t < tf:
-            px += vx * dt
-            py += vy * dt
-            pz += vz * dt
+        t = tf
+        # Update positions using kinematic equations
+        px_final = px + vx * t
+        py_final = py + vy * t
+        pz_final = pz + vz * t - 0.5 * self.g * t**2
 
-            # update velocity
-            vx += 0 
-            vy += 0
-            vz -= self.g * dt
+        # Update velocities
+        vx_final = vx  # No change in x-direction velocity
+        vy_final = vy  # No change in y-direction velocity
+        vz_final = vz - self.g * t  # Velocity in z-direction changes due to gravity
 
-        return np.array([px, py, pz, vx, vy, vz])
+        return np.array([px_final, py_final, pz_final, vx_final, vy_final, vz_final])
 
 
 
@@ -274,7 +274,7 @@ class Ball(object):
         # self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
         new_v = v_n_new + v_t_new + robot_state[3:]
 
-        return new_v[3], new_v[4], new_v[5]
+        return new_v[0], new_v[1], new_v[2]
     
     def bounce(self, curr_v, n = np.array([0, 0, 1])):
         """
@@ -288,7 +288,7 @@ class Ball(object):
 
         new_v = v_n_new + v_t_new
 
-        return new_v[3], new_v[4], new_v[5]
+        return new_v[0], new_v[1], new_v[2]
         
     def is_colided(self, obstacles):
         return False

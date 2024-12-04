@@ -12,10 +12,10 @@ from animator import create_animation
 
 robot = bot.Bot()
 
-x0 = np.array([0,0,0,0,0,0])
-ball_x0 = np.array([2, 8, 5, 0, 0, 10])
+x0 = np.array([1,1,0,0,0,0])
+ball_x0 = np.array([0, 0, 5, 0, 0, 10])
 bball = ball.Ball(ball_x0)
-tf = 10
+tf = 15
 dt = .01
 t0 = 0
 
@@ -42,6 +42,7 @@ while t[-1] < tf:
     # for now horizon is until touchdown
     horizon = bball.get_time_to_touchdown()# change horizon if ball isnt moving
     N = max(int(horizon/robot.dt), 5)
+    N = min(N, 100) # make sure horizon isnt too big
     # print(N)
     current_u_command = robot.compute_MPC_feedback(current_robot_x, bball, N)
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
@@ -55,12 +56,19 @@ while t[-1] < tf:
     # simulate the ball after robot action is taken
     bball.simulate_ball(robot, current_robot_x, dt)
 
+    # print then break if ball touches the goal
+    error = np.linalg.norm(bball.x[:3] - robot.goal)
+    if error < .05:
+       print("GOAL")
+       break
+
 
     robot_x.append(new_robot_x)
     ball_x.append(bball.x)
     u.append(current_u_command)
     t.append(t[-1] + dt)
-    # print(t[-1], "u: ", u[-1])
+    #print(t[-1])
+    print(t[-1], "u: ", u[-1], " vz: ", robot_x[-1][5])
 
 
 anim = create_animation(robot_x, ball_x, robot.goal, tf)

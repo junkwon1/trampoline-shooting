@@ -21,7 +21,7 @@ class BotBallVisualizer:
         curr_robot_x = self.robot_x[i]
         curr_ball_x = self.ball_x[i]
         # plot the robot
-        bot_diameter = 1
+        bot_diameter = .5
 
         theta = np.linspace(0, 2 * np.pi, 50)
         center = curr_robot_x[0:2]

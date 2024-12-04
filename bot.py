@@ -16,10 +16,15 @@ class Bot(object):
         self.goal = np.array([3, 3, 10]) # change to desired goal location!
 
         self.m = 5
-        self.diameter = 1 # robot diameter in m
+        self.diameter = .5 # robot diameter in m
 
-        self.umin = -20
-        self.umax = 20
+        # self.umin = -20
+        # self.umax = 20
+
+        self.umin = -200
+        self.umax = 200
+        # self.uminz = -200
+        # self.umaxz = 200
         # self.umin = 0
         # self.umax = 0
 
@@ -59,6 +64,7 @@ class Bot(object):
         u1 = u[1]
         u2 = u[2]
 
+        #print(np.array([xdot, ydot, zdot, u0/m, u1/m, u2/m]))
         return np.array([xdot, ydot, zdot, u0/m, u1/m, u2/m])   
 
     def discrete_time_dynamics(self, T):
@@ -72,42 +78,62 @@ class Bot(object):
             expr = (Ac @ x[k] + Bc @ u[k])
             for i in range (self.n_x):
                 prog.AddLinearEqualityConstraint(x[k+1][i] == expr[i])
+    
+    
 
     def add_input_constraints(self, prog, u):
+        # prog.AddBoundingBoxConstraint(self.uminz, self.umaxz, u[:][2])
+        # prog.AddBoundingBoxConstraint(self.umin, self.umax, u[:][:1])
         prog.AddBoundingBoxConstraint(self.umin, self.umax, u)
+
+
+    def add_way_point_constraint(self, prog, x):
+        pass
 
     def add_z_vel_constraint(self, prog, x, N):
         for k in range(N-1):
             prog.AddLinearConstraint(x[k][5] >= 0) # z vel must be > 0
 
 
-    def add_running_cost(self, prog, x, u, N, ball, w1, w2):
+    def add_running_cost(self, prog, x, u, N, ball, w1, w2, w3):
         for k in range(N-1):
             # calculate the position of the ball
-            curr_ball_x = ball.simulate_ball_no_update(self, k*self.dt, self.dt)
+            curr_ball_x = ball.simulate_ball_no_update(k*self.dt)
             pos_x_e = x[k][:3] - curr_ball_x[:3]
 
-            # add a cost on the robot not being near the ball
-            prog.AddQuadraticCost(w1*(pos_x_e.T) @ np.identity(3) @ (pos_x_e))
+            #prog.AddQuadraticCost(w1*(pos_x_e.T) @ np.identity(3) @ (pos_x_e))
+
+            # add a cost on the robot z velocity not being desired
+            vz_des = ((2 * 9.81 * self.goal[2]) ** 0.5 - ball.COR * curr_ball_x[5]) / ball.COR
+            vze = x[k][5] - vz_des
+            #prog.AddQuadraticCost(w3*vze**2)
 
             # add a cost on control action
             prog.AddQuadraticCost(w2*(u[k].T) @ self.R @ (u[k]))
     
     def add_final_position_cost(self, prog: MathematicalProgram, x, N, ball, w):
-        curr_ball_x = ball.simulate_ball_no_update(self, N*self.dt, self.dt)
+        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
         x_e = x[-1] - curr_ball_x
 
         # add a cost on the final robot pos not being at the ball
         prog.AddQuadraticCost(w*(x_e[:3].T) @ np.identity(3) @ (x_e[:3]))
 
-    def add_final_velocity_cost(self, prog, x, N, ball, w):
+    def add_final_velocity_cost(self, prog, x, N, ball, w1, w2):
         # add a cost for the robot not having the velocity that launches the ball into the goal
-        curr_ball_x = ball.simulate_ball_no_update(self, N*self.dt, self.dt)
+        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
         vx_des = 0
         vy_des = 0
-        vz_des = curr_ball_x[2] + ((2 * 9.81 * self.goal[2]) **.5 - (ball.COR * curr_ball_x[2])) / ball.COR
+
+        # cost to have a velocity towards the goal
+        goal_dir = self.goal[:2] - x[-1][:2]
+        cos_theta = np.dot(x[-1][3:5], goal_dir)
+        alignment_cost = 1 - cos_theta 
+        prog.AddCost(w2*alignment_cost)
+
+        vz_des = ((2 * 9.81 * self.goal[2]) ** 0.5 - ball.COR * curr_ball_x[5]) / ball.COR
+        # print('vz_des: ', vz_des)
         vze = x[-1][5] - vz_des
-        prog.AddQuadraticCost(w*vze**2)
+        prog.AddQuadraticCost(w1*vze**2)
 
     def add_switch_behavior_cost(self, prog, x, u, N, ball):
         """
@@ -170,7 +196,7 @@ class Bot(object):
 
 
 
-    def compute_MPC_feedback(self, x_cur, ball, N): 
+    def compute_MPC_feedback(self, x_cur, ball, N, mode): 
         prog = MathematicalProgram()
         x = np.zeros((N, 6), dtype="object")
         for i in range(N):
@@ -179,15 +205,20 @@ class Bot(object):
         for i in range(N-1):
             u[i] = prog.NewContinuousVariables(3)
         
+        if mode == 1: # get behind ball
+            pass
+        elif mode == 2: # shoot ball
+            pass
+
 
         self.add_initial_constraint(prog, x, x_cur)
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
         self.add_z_vel_constraint(prog, x, N)
-        self.add_running_cost(prog, x, u, N, ball, w1=1, w2=1)
+        self.add_running_cost(prog, x, u, N, ball, w1=1, w2=.1, w3 = 5)
         #self.add_switch_behavior_cost(prog, x, u, N, ball)
-        self.add_final_position_cost(prog, x, N, ball, w=5)
-        self.add_final_velocity_cost(prog, x, N, ball, w=1)
+        self.add_final_position_cost(prog, x, N, ball, w=10)
+        self.add_final_velocity_cost(prog, x, N, ball, w1=10, w2=10)
 
         solver = SnoptSolver()
         #solver = OsqpSolver()
