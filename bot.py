@@ -1,5 +1,5 @@
 import numpy as np
-from pydrake.solvers import MathematicalProgram, Solve, OsqpSolver
+from pydrake.solvers import MathematicalProgram, Solve, OsqpSolver, SnoptSolver
 import pydrake.symbolic as sym
 
 from pydrake.all import MonomialBasis, OddDegreeMonomialBasis, Variables
@@ -156,7 +156,7 @@ class Bot(object):
 
 
 
-    def compute_feedback(self, x_cur, ball_x, N): 
+    def compute_MPC_feedback(self, x_cur, ball, N): 
         prog = MathematicalProgram()
         x = np.zeros((N, 6), dtype="object")
         for i in range(N):
@@ -169,13 +169,13 @@ class Bot(object):
         self.add_initial_constraint(prog, x, x_cur)
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
-        self.add_running_cost(prog, x, u, N, ball_x)
+        self.add_running_cost(prog, x, u, N, ball)
         #self.add_final_cost(prog, x, ball_x, desired_traj_norm, N)
 
-        solver = OsqpSolver()
+        solver = SnoptSolver()
         result = solver.Solve(prog)
 
-        u_res = np.zeros(3)
-        return result.GetSolution(x)
+        u_res = result.GetSolution(u[0])
+        return u_res
         # for i in range(N-1):
         #     print(result.GetSolution(u[i]))

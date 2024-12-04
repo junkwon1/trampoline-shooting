@@ -8,6 +8,8 @@ Ball is currently a point mass
 
 Dynamics is simulated via forward integration
 
+
+NOTE SHOULD PROBABLY CHANGE TO GET RID OF X0
 """
 
 class Ball(object):
@@ -23,13 +25,66 @@ class Ball(object):
         self.x = x0 # current state of the ball
         self.dt = .01 # dt 
     
-    def simulate_ball(self, robot_state_list, robot, horizon, simulate_time):
+    def get_time_to_touchdown(self):
+        a = 0.5 * self.g
+        b = -self.x[5]
+        c = -self.x[2]
+        
+        # Discriminant
+        discriminant = b**2 - 4*a*c
+        
+        if discriminant < 0:
+            return None  # failed
+        
+        # Calculate the two roots
+        t1 = (-b + math.sqrt(discriminant)) / (2 * a)
+        t2 = (-b - math.sqrt(discriminant)) / (2 * a)
+        
+        # Return the positive root
+        return max(t1, t2)
+
+
+        return t
+    def simulate_ball(self, robot, robot_state, dt):
+        """
+        simulate the ball for given dt amount of time
+        """
+        px = self.x[0]
+        py = self.x[1]
+        pz = self.x[2]
+        vx = self.x[3]
+        vy = self.x[4]
+        vz = self.x[5]
+
+        px += vx * dt
+        py += vy * dt
+        pz += vz * dt
+
+        # update velocity
+        vx += 0 
+        vy += 0
+        vz -= self.g * dt
+        if pz <= 0:
+            # determine if we collided with ground or robot
+            if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
+                # then the ball is within the radius of the robot away, so it collides with the robot
+                vx, vy, vz = self.robot_bounce(robot_state)
+            else:
+                vx, vy, vz = self.bounce() # update velocity according to ground bounce
+        elif self.is_colided(None):
+            pass # currently should never go here 
+        
+        self.x = np.array([px, py, pz, vx, vy, vz])
+        return self.x
+
+
+
+    def simulate_ball_old(self, robot_state_list, robot, horizon, simulate_time):
         """
         given the robot actions over a finite horizon, simulate the ball behavior for some desired time
 
         once the horizon is over, we assume that the velocity of the robot stays constant
 
-        TODO should I manually bound the robot positions after the horizon (so it stops against the theoretical wall)???
         """
         t = 0
         px = self.x0[0]
