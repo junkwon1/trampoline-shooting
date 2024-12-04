@@ -44,7 +44,7 @@ while t[-1] < tf:
     N = max(int(horizon/robot.dt), 5)
     N = min(N, 100) # make sure horizon isnt too big
     # print(N)
-    current_u_command = robot.compute_MPC_feedback(current_robot_x, bball, N)
+    current_u_command = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=1)
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
     # simulate the robot for robot action
     def f(t, x):

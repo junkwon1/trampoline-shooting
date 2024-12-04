@@ -79,7 +79,15 @@ class Bot(object):
             for i in range (self.n_x):
                 prog.AddLinearEqualityConstraint(x[k+1][i] == expr[i])
     
-    
+    def add_avoid_ball_constraints(self, prog, x, N, ball):
+        # add constraint that the robot must avoid some region around the ball
+        for k in range(N-1):
+            curr_ball_x = ball.simulate_ball_no_update(k*self.dt)
+            prog.AddConstraint(
+                (x[k][0] - curr_ball_x[0])**2 + 
+                (x[k][1] - curr_ball_x[1])**2 >= (self.diameter/2*1.5)**2
+            )
+
 
     def add_input_constraints(self, prog, u):
         # prog.AddBoundingBoxConstraint(self.uminz, self.umaxz, u[:][2])
@@ -194,6 +202,31 @@ class Bot(object):
             prog.AddQuadraticCost(z_velocity_cost)
 
 
+    def add_mode_1_running_cost(self, prog, x, N, ball, w):
+        # the robot wants to go behind the ball
+        # the goal location is the location 2 robot diameters away from the ball 
+        # and also in the direction of the balls movement
+
+        # find balls direction of movement
+        bvx = ball.x[3]
+        bvy = ball.x[4]
+        ball_velocity = np.array([bvx, bvy])
+        for k in range(N):
+            curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
+            # find the location 2 robot diameters away from the ball in the direction of movement
+            bpx = curr_ball_x[0]
+            bpy = curr_ball_x[1]
+            if np.linalg.norm(ball_velocity) < 1e-4:  # Handle stationary ball case
+                # then the robot should orient itself in the direction of the goal
+                direction = (bpx - self.goal[:2]) / np.linalg.norm(bpy - self.goal[:2])
+            else: 
+                direction = ball_velocity / np.linalg.norm(ball_velocity)
+            
+            offset_distance = 2 * self.diameter
+            goal_position = np.array([bpx, bpy]) + offset_distance * direction
+            x_e = x[k][:2] - goal_position
+            prog.AddQuadraticCost(w*(x_e.T) @ np.identity(2) @ (x_e))
+
 
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
@@ -205,20 +238,29 @@ class Bot(object):
         for i in range(N-1):
             u[i] = prog.NewContinuousVariables(3)
         
-        if mode == 1: # get behind ball
-            pass
-        elif mode == 2: # shoot ball
-            pass
 
-
+        # universal constraints
         self.add_initial_constraint(prog, x, x_cur)
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
         self.add_z_vel_constraint(prog, x, N)
-        self.add_running_cost(prog, x, u, N, ball, w1=1, w2=.1, w3 = 5)
-        #self.add_switch_behavior_cost(prog, x, u, N, ball)
-        self.add_final_position_cost(prog, x, N, ball, w=10)
-        self.add_final_velocity_cost(prog, x, N, ball, w1=10, w2=10)
+
+
+        if mode == 1: # get behind ball
+            self.add_avoid_ball_constraints(prog, x, N, ball)
+            self.add_mode_1_running_cost(prog, x, N, ball, w=10)
+        elif mode == 2: # shoot ball
+            pass
+
+
+        # self.add_initial_constraint(prog, x, x_cur)
+        # self.add_input_constraints(prog, u)
+        # self.add_dynamic_constraints(prog, x, u, N, self.dt)
+        # self.add_z_vel_constraint(prog, x, N)
+        # self.add_running_cost(prog, x, u, N, ball, w1=1, w2=.1, w3 = 5)
+        # #self.add_switch_behavior_cost(prog, x, u, N, ball)
+        # self.add_final_position_cost(prog, x, N, ball, w=10)
+        # self.add_final_velocity_cost(prog, x, N, ball, w1=10, w2=10)
 
         solver = SnoptSolver()
         #solver = OsqpSolver()
