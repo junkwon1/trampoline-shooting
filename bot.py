@@ -88,6 +88,10 @@ class Bot(object):
                 (x[k][1] - curr_ball_x[1])**2 >= (self.diameter/2*1.5)**2
             )
 
+    def add_avoid_zero_vel_constraint(self, prog, x, N, ball):
+        for k in range(N-1):
+            prog.AddConstraint(np.linalg.norm(x[k][3:5]) >= .01)
+
 
     def add_input_constraints(self, prog, u):
         # prog.AddBoundingBoxConstraint(self.uminz, self.umaxz, u[:][2])
@@ -95,12 +99,10 @@ class Bot(object):
         prog.AddBoundingBoxConstraint(self.umin, self.umax, u)
 
 
-    def add_way_point_constraint(self, prog, x):
-        pass
 
     def add_z_vel_constraint(self, prog, x, N):
         for k in range(N-1):
-            prog.AddLinearConstraint(x[k][5] >= 0) # z vel must be > 0
+            prog.AddLinearConstraint(x[k][5] >= 10) # z vel must be > 0
 
 
     def add_running_cost(self, prog, x, u, N, ball, w1, w2, w3):
@@ -202,7 +204,7 @@ class Bot(object):
             prog.AddQuadraticCost(z_velocity_cost)
 
 
-    def add_mode_1_running_cost(self, prog, x, N, ball, w):
+    def add_mode_1_running_cost(self, prog, x, u, N, ball, w1, w2):
         # the robot wants to go behind the ball
         # the goal location is the location 2 robot diameters away from the ball 
         # and also in the direction of the balls movement
@@ -211,22 +213,54 @@ class Bot(object):
         bvx = ball.x[3]
         bvy = ball.x[4]
         ball_velocity = np.array([bvx, bvy])
-        for k in range(N):
+        for k in range(N-1):
             curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
             # find the location 2 robot diameters away from the ball in the direction of movement
             bpx = curr_ball_x[0]
             bpy = curr_ball_x[1]
             if np.linalg.norm(ball_velocity) < 1e-4:  # Handle stationary ball case
                 # then the robot should orient itself in the direction of the goal
-                direction = (bpx - self.goal[:2]) / np.linalg.norm(bpy - self.goal[:2])
+                direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
             else: 
                 direction = ball_velocity / np.linalg.norm(ball_velocity)
             
             offset_distance = 2 * self.diameter
             goal_position = np.array([bpx, bpy]) + offset_distance * direction
             x_e = x[k][:2] - goal_position
-            prog.AddQuadraticCost(w*(x_e.T) @ np.identity(2) @ (x_e))
+            prog.AddQuadraticCost(w1*(x_e.T) @ np.identity(2) @ (x_e))
 
+            prog.AddQuadraticCost(w2*(u[k].T) @ self.R @ (u[k]))
+    
+    def add_mode_2_running_cost(self, prog, x, u, N, ball, w1, w2):
+        for k in range(N-1):
+            curr_ball_x = ball.simulate_ball_no_update(k*self.dt)
+            x_e = x[k][:2] - curr_ball_x[:2]
+            prog.AddQuadraticCost(w1*(x_e.T) @ np.identity(2) @ (x_e))
+            bpx = curr_ball_x[0]
+            bpy = curr_ball_x[1]
+            direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
+            robot_v = x[k][3:5]
+            prog.AddCost(-1*w1*np.dot(robot_v, (x[k][:2] - self.goal[:2])))
+            prog.AddQuadraticCost(w2*(u[k].T) @ self.R @ (u[k]))
+
+    def add_mode_2_final_cost(self, prog, x, N, ball, w1, w2, w3):
+        # add final cost that robot must meet the ball at its touchdown
+        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
+        x_e = x[-1][:2] - curr_ball_x[:2]
+        prog.AddQuadraticCost(w1*(x_e.T) @ np.identity(2) @ (x_e))
+
+        # add final cost that the robot must have a velocity to cancel the ball velocity
+        # TODO 
+        # for now just hit it towards the goal
+        bpx = curr_ball_x[0]
+        bpy = curr_ball_x[1]
+        direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
+        robot_v = x[-1][3:5]
+        #prog.AddCost(-1*w2*np.dot(robot_v, direction))
+
+
+        # add final cost that the velocity in the xy plane be 10 HACK JUST FOR TESTING
+        # prog.AddCost(w3*(np.linalg.norm(robot_v) - 10)**2)
 
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
@@ -248,8 +282,10 @@ class Bot(object):
 
         if mode == 1: # get behind ball
             self.add_avoid_ball_constraints(prog, x, N, ball)
-            self.add_mode_1_running_cost(prog, x, N, ball, w=10)
-        elif mode == 2: # shoot ball
+            self.add_mode_1_running_cost(prog, x, u, N, ball, w1=10, w2=1)
+        elif mode == 2: # cancel out the ball velocity
+            self.add_mode_2_running_cost(prog, x, u, N, ball, w1=10, w2=1)
+            self.add_mode_2_final_cost(prog, x, N, ball, w1=50, w2=10, w3=10)
             pass
 
 

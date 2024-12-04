@@ -12,8 +12,8 @@ from animator import create_animation
 
 robot = bot.Bot()
 
-x0 = np.array([1,1,0,0,0,0])
-ball_x0 = np.array([0, 0, 5, 0, 0, 10])
+x0 = np.array([1,1,0,0,0,11])
+ball_x0 = np.array([-1, -1, 5, 1, 1, 10])
 bball = ball.Ball(ball_x0)
 tf = 15
 dt = .01
@@ -32,19 +32,20 @@ robot_x = [x0]
 ball_x = [ball_x0]
 u = [np.zeros((3,))]
 t = [t0]
-
+mode = 1 # start in mode 1
 while t[-1] < tf:
     current_t = t[-1]
     current_robot_x = robot_x[-1]
     current_u_command = np.zeros(3)
 
-
-    # for now horizon is until touchdown
-    horizon = bball.get_time_to_touchdown()# change horizon if ball isnt moving
-    N = max(int(horizon/robot.dt), 5)
-    N = min(N, 100) # make sure horizon isnt too big
-    # print(N)
-    current_u_command = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=1)
+    if mode == 1:
+        N = 10
+    elif mode == 2:
+        horizon = bball.get_time_to_touchdown()# change horizon if ball isnt moving
+        N = max(int(horizon/robot.dt), 2)
+        #N = min(N, 50) # make sure horizon isnt too big
+    
+    current_u_command = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
     # simulate the robot for robot action
     def f(t, x):
@@ -55,6 +56,25 @@ while t[-1] < tf:
 
     # simulate the ball after robot action is taken
     bball.simulate_ball(robot, current_robot_x, dt)
+
+    # check if mode 1 task has been accomplished
+    if mode == 1:
+        bpx = bball.x[0]
+        bpy = bball.x[1]
+        if np.linalg.norm(bball.x[:3]) < 1e-4:  # Handle stationary ball case
+            # then the robot should orient itself in the direction of the goal
+            direction = (np.array([bpx, bpy]) - robot.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - robot.goal[:2])
+        else: 
+            direction = bball.x[:3] / np.linalg.norm(bball.x[:3])
+        
+        offset_distance = 2 * robot.diameter
+        goal_position = np.array([bpx, bpy]) + offset_distance * direction[:2]
+        if np.linalg.norm(new_robot_x[:2] - goal_position) < .2:
+            mode = 2
+            print('mode 1 done')
+    # check if mode 2 task has been accomplished
+    if mode == 2:
+        pass
 
     # print then break if ball touches the goal
     error = np.linalg.norm(bball.x[:3] - robot.goal)
@@ -68,7 +88,7 @@ while t[-1] < tf:
     u.append(current_u_command)
     t.append(t[-1] + dt)
     #print(t[-1])
-    print(t[-1], "u: ", u[-1], " vz: ", robot_x[-1][5])
+    #print(t[-1], "u: ", u[-1], " vz: ", robot_x[-1][5])
 
 
 anim = create_animation(robot_x, ball_x, robot.goal, tf)
