@@ -22,19 +22,20 @@ class Bot(object):
         self.n_x = 4
         self.n_u = 2
 
-        self.Q = np.zeros((4,4))
+        self.Q = np.zeros((6,6))
         self.Q[0,0] = 10
         self.Q[1,1] = 10
+        self.Q[2.2] = 10
 
-        self.R = 0.5*np.identity(2)
+        self.R = 0.5*np.identity(3)
 
-        A = np.zeros((4,4))
-        A[0, 2] = 1
+        A = np.zeros((6,6))
+        A[0, 2] = 1 # NEED HELP HERE
         A[1, 3] = 1
         self.A = A
 
-        B = np.zeros((4,2))
-        B[2,0] = 1/self.m
+        B = np.zeros((6,3))
+        B[2,0] = 1/self.m # NEED HELP HERE 
         B[3,1] = 1/self.m
         self.B = B
 
@@ -51,13 +52,13 @@ class Bot(object):
         u1 = u[1]
         u2 = u[2]
 
-        return np.array([xdot, ydot, u0/m, u1/m])
+        return np.array([xdot, ydot, zdot, u0/m, u1/m, u2/m])
 
     def discrete_time_dynamics(self, T):
         pass
 
     def add_dynamic_constraints(self, prog, x, u, N, T):
-        Ac = np.identity(4) + self.A * T
+        Ac = np.identity(6) + self.A * T
         Bc = self.B * T
 
         for k in range(N-1):
@@ -155,12 +156,12 @@ class Bot(object):
 
     def compute_feedback(self, x_cur, ball_x, desired_traj_norm, N): 
         prog = MathematicalProgram()
-        x = np.zeros((N, 4), dtype="object")
+        x = np.zeros((N, 6), dtype="object")
         for i in range(N):
-            x[i] = prog.NewContinuousVariables(4)
-        u = np.zeros((N-1, 2), dtype="object")
+            x[i] = prog.NewContinuousVariables(6)
+        u = np.zeros((N-1, 3), dtype="object")
         for i in range(N-1):
-            u[i] = prog.NewContinuousVariables(2)
+            u[i] = prog.NewContinuousVariables(3)
         
 
         self.add_initial_constraint(prog, x, x_cur)
