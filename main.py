@@ -13,9 +13,9 @@ from animator import create_animation
 robot = bot.Bot()
 
 x0 = np.array([0,0,0,0,0,0])
-ball_x0 = np.array([2, 8, 5, 3, 3, 3])
+ball_x0 = np.array([2, 8, 5, 0, 0, 10])
 bball = ball.Ball(ball_x0)
-tf = 15
+tf = 10
 dt = .01
 t0 = 0
 
@@ -50,6 +50,7 @@ while t[-1] < tf:
       return robot.continuous_time_full_dynamics(current_robot_x, current_u_real)
     sol = solve_ivp(f, (0, dt), current_robot_x, first_step=dt)
     new_robot_x = sol.y[:,-1]
+    new_robot_x[2] = 0 # keep robot on the floor
 
     # simulate the ball after robot action is taken
     bball.simulate_ball(robot, current_robot_x, dt)
@@ -59,7 +60,7 @@ while t[-1] < tf:
     ball_x.append(bball.x)
     u.append(current_u_command)
     t.append(t[-1] + dt)
-    print(t[-1], "u: ", u[-1])
+    # print(t[-1], "u: ", u[-1])
 
 
 anim = create_animation(robot_x, ball_x, robot.goal, tf)

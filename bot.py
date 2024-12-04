@@ -1,6 +1,8 @@
 import numpy as np
 from pydrake.solvers import MathematicalProgram, Solve, OsqpSolver, SnoptSolver
 import pydrake.symbolic as sym
+from pydrake.all import if_then_else
+
 
 from pydrake.all import MonomialBasis, OddDegreeMonomialBasis, Variables
 
@@ -14,18 +16,21 @@ class Bot(object):
         self.goal = np.array([3, 3, 10]) # change to desired goal location!
 
         self.m = 5
-        self.diameter = .5 # robot diameter in m
+        self.diameter = 1 # robot diameter in m
 
-        self.umin = -5
-        self.umax = 5
+        self.umin = -20
+        self.umax = 20
+        # self.umin = 0
+        # self.umax = 0
 
-        self.n_x = 4
-        self.n_u = 2
+
+        self.n_x = 6
+        self.n_u = 3
 
         self.Q = np.zeros((6,6))
-        self.Q[0,0] = 10
-        self.Q[1,1] = 10
-        self.Q[2,2] = 10
+        self.Q[0,0] = 1
+        self.Q[1,1] = 1
+        self.Q[2,2] = 1
 
         self.R = 0.5*np.identity(3)
 
@@ -54,7 +59,7 @@ class Bot(object):
         u1 = u[1]
         u2 = u[2]
 
-        return np.array([xdot, ydot, zdot, u0/m, u1/m, u2/m])
+        return np.array([xdot, ydot, zdot, u0/m, u1/m, u2/m])   
 
     def discrete_time_dynamics(self, T):
         pass
@@ -71,29 +76,38 @@ class Bot(object):
     def add_input_constraints(self, prog, u):
         prog.AddBoundingBoxConstraint(self.umin, self.umax, u)
 
-    def add_running_cost(self, prog, x, u, N, ball):
-        x_e = x - ball.x
-
+    def add_z_vel_constraint(self, prog, x, N):
         for k in range(N-1):
-            prog.AddQuadraticCost((x_e[k].T) @ self.Q @ (x_e[k]))
-            prog.AddQuadraticCost((u[k].T) @ self.R @ (u[k]))
+            prog.AddLinearConstraint(x[k][5] >= 0) # z vel must be > 0
+
+
+    def add_running_cost(self, prog, x, u, N, ball, w1, w2):
+        for k in range(N-1):
+            # calculate the position of the ball
+            curr_ball_x = ball.simulate_ball_no_update(self, k*self.dt, self.dt)
+            pos_x_e = x[k][:3] - curr_ball_x[:3]
+
+            # add a cost on the robot not being near the ball
+            prog.AddQuadraticCost(w1*(pos_x_e.T) @ np.identity(3) @ (pos_x_e))
+
+            # add a cost on control action
+            prog.AddQuadraticCost(w2*(u[k].T) @ self.R @ (u[k]))
     
-    def add_final_cost(self, prog: MathematicalProgram, x, ball, desired, N):
+    def add_final_position_cost(self, prog: MathematicalProgram, x, N, ball, w):
+        curr_ball_x = ball.simulate_ball_no_update(self, N*self.dt, self.dt)
+        x_e = x[-1] - curr_ball_x
 
-        #vector representing new velocity of the ball
-        # resultant_velo = ball_x[2:] + 1 * x[N-1][2:]
-        resultant_velo = x[N-1][2:]
+        # add a cost on the final robot pos not being at the ball
+        prog.AddQuadraticCost(w*(x_e[:3].T) @ np.identity(3) @ (x_e[:3]))
 
-        # cos(theta), represents error from desired trajectory
-        error = np.dot(resultant_velo, desired) / np.linalg.norm(resultant_velo)
-        
-        #eventually want cost on velo as well
-
-        a = 200*np.array([[0],[0],[-desired[0]],[-desired[1]]])
-
-        prog.AddLinearCost(a,0, x[N-1])
-        # prog.AddPolynomialCost(1 - error)
-        # prog.AddLinearCost(resultant_velo)
+    def add_final_velocity_cost(self, prog, x, N, ball, w):
+        # add a cost for the robot not having the velocity that launches the ball into the goal
+        curr_ball_x = ball.simulate_ball_no_update(self, N*self.dt, self.dt)
+        vx_des = 0
+        vy_des = 0
+        vz_des = curr_ball_x[2] + ((2 * 9.81 * self.goal[2]) **.5 - (ball.COR * curr_ball_x[2])) / ball.COR
+        vze = x[-1][5] - vz_des
+        prog.AddQuadraticCost(w*vze**2)
 
     def add_switch_behavior_cost(self, prog, x, u, N, ball):
         """
@@ -129,7 +143,7 @@ class Bot(object):
             # put velocity in "error" coords
             # robot must travel faster than the ball for this to cancel out
             v_e = (x[-1][3:5] * ball.mu_robot) - (-ball_vel_in_plane)
-            velocity_cancelling_cost = v_e.T @ np.identity(2) @ v_e
+            velocity_cancelling_cost = 5 * v_e.T @ np.identity(2) @ v_e
             prog.AddQuadraticCost(velocity_cancelling_cost)
 
             # NOTE: final cost on increasing ball z velocity to be sufficient
@@ -169,12 +183,14 @@ class Bot(object):
         self.add_initial_constraint(prog, x, x_cur)
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
-        self.add_running_cost(prog, x, u, N, ball)
+        self.add_z_vel_constraint(prog, x, N)
+        self.add_running_cost(prog, x, u, N, ball, w1=1, w2=1)
         #self.add_switch_behavior_cost(prog, x, u, N, ball)
-        #self.add_final_cost(prog, x, ball_x, desired_traj_norm, N)
+        self.add_final_position_cost(prog, x, N, ball, w=5)
+        self.add_final_velocity_cost(prog, x, N, ball, w=1)
 
-        #solver = SnoptSolver()
-        solver = OsqpSolver()
+        solver = SnoptSolver()
+        #solver = OsqpSolver()
         result = solver.Solve(prog)
 
         u_res = result.GetSolution(u[0])

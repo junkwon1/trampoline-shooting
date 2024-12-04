@@ -17,7 +17,9 @@ class Ball(object):
         
         # values approximately for basketball
         self.m = .624
-        self.COR = .758 # COR is for normal velocities
+        #self.COR = .758 # COR is for normal velocities
+        self.COR = .9 # COR is for normal velocities
+
         self.mu = .1 # mu is for tangential velocities
         self.mu_robot = .5
         self.g = 9.81 # gravity
@@ -64,18 +66,44 @@ class Ball(object):
         vx += 0 
         vy += 0
         vz -= self.g * dt
-        if pz <= 0:
+        if pz < 0:
             # determine if we collided with ground or robot
             if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
                 # then the ball is within the radius of the robot away, so it collides with the robot
-                vx, vy, vz = self.robot_bounce(robot_state)
+                print('robot collsion! ', 'before: ', np.array([vx, vy, vz]))
+                vx, vy, vz = self.robot_bounce(curr_v=np.array([vx, vy, vz]), robot_state=robot_state)
+                print('robot collsion! ', 'after: ', np.array([vx, vy, vz]))
             else:
-                vx, vy, vz = self.bounce() # update velocity according to ground bounce
+                print('ground collsion! ', 'before: ', np.array([vx, vy, vz]))
+                vx, vy, vz = self.bounce(curr_v=np.array([vx, vy, vz])) # update velocity according to ground bounce
+                print('ground collsion! ', 'after: ', np.array([vx, vy, vz]))
+
         elif self.is_colided(None):
             pass # currently should never go here 
         
         self.x = np.array([px, py, pz, vx, vy, vz])
         return self.x
+    
+    def simulate_ball_no_update(self, robot, tf, dt):
+        px = self.x[0]
+        py = self.x[1]
+        pz = self.x[2]
+        vx = self.x[3]
+        vy = self.x[4]
+        vz = self.x[5]
+
+        t = 0
+        while t < tf:
+            px += vx * dt
+            py += vy * dt
+            pz += vz * dt
+
+            # update velocity
+            vx += 0 
+            vy += 0
+            vz -= self.g * dt
+
+        return np.array([px, py, pz, vx, vy, vz])
 
 
 
@@ -228,12 +256,12 @@ class Ball(object):
         """
         self.x0 = x
     
-    def robot_bounce(self, robot_state):
+    def robot_bounce(self, curr_v, robot_state):
         """
         given the current state and the robot state, calculate the new ball state after the collision with the robot
         """
         # use relative velocity
-        rel_v = self.x[3:] - robot_state[3:]
+        rel_v = curr_v - robot_state[3:]
         robot_n = np.array([0, 0, 1])
 
         v_n = np.dot(rel_v, robot_n) * robot_n
@@ -243,25 +271,24 @@ class Ball(object):
         v_n_new = self.COR * (robot_state[2]- self.x[2]) + robot_state[2]
         v_t_new = (1-self.mu_robot) * v_t
 
-        # Update ball velocity
         # self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
-        self.x[3:] = v_n_new + v_t_new + robot_state[3:]
+        new_v = v_n_new + v_t_new + robot_state[3:]
 
-        return self.x[3], self.x[4], self.x[5]
+        return new_v[3], new_v[4], new_v[5]
     
-    def bounce(self, n = np.array([0, 0, 1])):
+    def bounce(self, curr_v, n = np.array([0, 0, 1])):
         """
         updates state of ball at bounce
         """
-        v_n = np.dot(self.x[3:], n) * n
-        v_t = self.x[3:] - v_n
+        v_n = np.dot(curr_v, n) * n
+        v_t = curr_v - v_n
 
         v_n_new = -self.COR * v_n
         v_t_new = (1-self.mu) * v_t
 
-        self.x[3:] = v_n_new + v_t_new
+        new_v = v_n_new + v_t_new
 
-        return self.x[3], self.x[4], self.x[5]
+        return new_v[3], new_v[4], new_v[5]
         
     def is_colided(self, obstacles):
         return False
