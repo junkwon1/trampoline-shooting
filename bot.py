@@ -24,8 +24,8 @@ class Bot(object):
         # self.umin = -20
         # self.umax = 20
 
-        self.umin = -200
-        self.umax = 200
+        self.umin = -50
+        self.umax = 50
         # self.uminz = -200
         # self.umaxz = 200
         # self.umin = 0
@@ -40,7 +40,7 @@ class Bot(object):
         self.Q[1,1] = 1
         # self.Q[2,2] = 1
 
-        self.R = 0.5*np.identity(3)
+        self.R = 0.01*np.identity(3)
 
         A = np.zeros((6,6))
         A[0, 3] = 1
@@ -267,10 +267,18 @@ class Bot(object):
 
     def add_mode_3_running_cost(self, prog, x, u, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
-        # print(curr_ball_x)
+        new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
+        desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
         x_e = x - curr_ball_x
-        for k in range(N):
+        bvx_e = new_ball_v[0] - desired_ball_vel[0]
+        bvy_e = new_ball_v[1] - desired_ball_vel[1]
+        bv_e = np.array([bvx_e, bvy_e])
+        for k in range(N-1):
             prog.AddQuadraticCost((x_e[k].T) @ self.Q @ (x_e[k]))
+            # prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
+            prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
+        prog.AddQuadraticCost((x_e[N-1].T) @ self.Q @ x_e[N-1])
+            
             # prog.AddQuadraticCost
 
     def add_mode_3_final_cost(self, prog, x, u, N, ball):
@@ -284,7 +292,8 @@ class Bot(object):
         # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
         bv_e = np.array([bvx_e, bvy_e])
-        prog.AddCost(50*(bv_e.T) @ np.identity(2) @ bv_e)
+        prog.AddCost(2*(bv_e.T) @ np.identity(2) @ bv_e)
+        # prog.AddCost(bvx_e**2 + bvy_e**2)
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
         prog = MathematicalProgram()
