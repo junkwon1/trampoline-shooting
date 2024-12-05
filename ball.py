@@ -28,9 +28,9 @@ class Ball(object):
         self.dt = .01 # dt 
     
     def get_time_to_touchdown(self):
-        a = 0.5 * self.g
-        b = -self.x[5]
-        c = -self.x[2]
+        a = -0.5 * self.g
+        b = self.x[5]
+        c = self.x[2]
         
         # Discriminant
         discriminant = b**2 - 4*a*c
@@ -43,7 +43,8 @@ class Ball(object):
         t2 = (-b - math.sqrt(discriminant)) / (2 * a)
         
         # Return the positive root
-        return max(t1, t2)
+        t = max(t1, t2)
+        return t
     
     def simulate_ball(self, robot, robot_state, dt):
         """
@@ -56,14 +57,6 @@ class Ball(object):
         vy = self.x[4]
         vz = self.x[5]
 
-        px += vx * dt
-        py += vy * dt
-        pz += vz * dt
-
-        # update velocity
-        vx += 0 
-        vy += 0
-        vz -= self.g * dt
         if pz < 0 and vz < 0:
             # determine if we collided with ground or robot
             if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
@@ -75,12 +68,18 @@ class Ball(object):
                 print('ground collsion! ', 'before: ', np.array([vx, vy, vz]))
                 vx, vy, vz = self.bounce(curr_v=np.array([vx, vy, vz])) # update velocity according to ground bounce
                 print('ground collsion! ', 'after: ', np.array([vx, vy, vz]))
+        else:
+            # update velocity
+            vx += 0 
+            vy += 0
+            vz -= self.g * dt
 
-        # elif self.is_colided(None):
-            # pass # currently should never go here 
-        
+        px += vx * dt
+        py += vy * dt
+        pz += vz * dt
+
         self.x = np.array([px, py, pz, vx, vy, vz])
-        return self.x
+        return np.array([px, py, pz, vx, vy, vz])
     
     def simulate_ball_no_update(self, tf):
         px = self.x[0]
@@ -91,6 +90,7 @@ class Ball(object):
         vz = self.x[5]
 
         t = tf
+
         # Update positions using kinematic equations
         px_final = px + vx * t
         py_final = py + vy * t
@@ -120,7 +120,7 @@ class Ball(object):
 
         # self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
         new_v = v_n_new + v_t_new + robot_state[3:]
-
+        
         return new_v[0], new_v[1], new_v[2]
     
     def bounce(self, curr_v, n = np.array([0, 0, 1])):
@@ -156,9 +156,9 @@ class Ball(object):
         deltaT = (vz + discriminant**0.5) / (9.81)
         dx = goalx - px
         dy = goaly - py
-        return (dx/deltaT, dy/deltaT)
-        print(vz**2 - 2*9.81 *h)
-        return 0
+
+        return np.array([dx/deltaT, dy/deltaT])
+
 
 """
 Testing

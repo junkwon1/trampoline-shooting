@@ -14,8 +14,8 @@ class Bot(object):
 
         self.dt = 0.01
 
-        self.goal = np.array([3, 3, 10]) # change to desired goal location!
-        self.goal = np.array([1, 3, 2]) # change to desired goal location!
+        #self.goal = np.array([3, 3, 10]) # change to desired goal location!
+        self.goal = np.array([0, 0, 5]) # change to desired goal location!
 
 
         self.m = 5
@@ -24,8 +24,8 @@ class Bot(object):
         # self.umin = -20
         # self.umax = 20
 
-        self.umin = -50
-        self.umax = 50
+        self.umin = -175
+        self.umax = 175
         # self.uminz = -200
         # self.umaxz = 200
         # self.umin = 0
@@ -104,8 +104,8 @@ class Bot(object):
 
 
     def add_z_vel_constraint(self, prog, x, N):
-        for k in range(N-1):
-            prog.AddLinearConstraint(x[k][5] >= 10) # z vel must be > 0
+        for k in range(N):
+            prog.AddLinearConstraint(x[k][5] == 13) # z vel must be > 0
 
 
     def add_running_cost(self, prog, x, u, N, ball, w1, w2, w3):
@@ -216,9 +216,9 @@ class Bot(object):
         bvx = ball.x[3]
         bvy = ball.x[4]
         ball_velocity = np.array([bvx, bvy])
-        for k in range(N-1):
-            curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
-            # find the location 2 robot diameters away from the ball in the direction of movement
+        for k in range(N):
+            curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
+            # find the location 2 robot diameters away from the ball in the direction of desired movement
             bpx = curr_ball_x[0]
             bpy = curr_ball_x[1]
             if np.linalg.norm(ball_velocity) < 1e-4:  # Handle stationary ball case
@@ -227,12 +227,12 @@ class Bot(object):
             else: 
                 direction = ball_velocity / np.linalg.norm(ball_velocity)
             
+            direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
+
             offset_distance = 2 * self.diameter
             goal_position = np.array([bpx, bpy]) + offset_distance * direction
             x_e = x[k][:2] - goal_position
             prog.AddQuadraticCost(w1*(x_e.T) @ np.identity(2) @ (x_e))
-
-            prog.AddQuadraticCost(w2*(u[k].T) @ self.R @ (u[k]))
     
     def add_mode_2_running_cost(self, prog, x, u, N, ball, w1, w2):
         for k in range(N-1):
@@ -266,23 +266,18 @@ class Bot(object):
         # prog.AddCost(w3*(np.linalg.norm(robot_v) - 10)**2)
 
     def add_mode_3_running_cost(self, prog, x, u, N, ball):
-        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
-        new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
-        desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
-        x_e = x - curr_ball_x
-        bvx_e = new_ball_v[0] - desired_ball_vel[0]
-        bvy_e = new_ball_v[1] - desired_ball_vel[1]
-        bv_e = np.array([bvx_e, bvy_e])
+        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
         for k in range(N-1):
-            prog.AddQuadraticCost((x_e[k].T) @ self.Q @ (x_e[k]))
-            # prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
-            prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
-        prog.AddQuadraticCost((x_e[N-1].T) @ self.Q @ x_e[N-1])
+            prog.AddQuadraticCost(.1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
+            #prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
+            #prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
+            pass
+        prog.AddQuadraticCost(.1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
             
             # prog.AddQuadraticCost
 
     def add_mode_3_final_cost(self, prog, x, u, N, ball):
-        curr_ball_x = ball.simulate_ball_no_update(N*self.dt) # is this the ball state at whatever point it next contacts ground?
+        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown()) # is this the ball state at whatever point it next contacts ground?
         new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
         desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
         # print(desired_ball_vel)
@@ -292,7 +287,11 @@ class Bot(object):
         # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
         bv_e = np.array([bvx_e, bvy_e])
-        prog.AddCost(2*(bv_e.T) @ np.identity(2) @ bv_e)
+
+        prog.AddCost(1*(bv_e.T) @ np.identity(2) @ bv_e)
+
+        
+        #prog.AddQuadraticCost(1*((x[N-1]-curr_ball_x).T) @ self.Q @ (x[N-1]-curr_ball_x))
         # prog.AddCost(bvx_e**2 + bvy_e**2)
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
@@ -314,14 +313,11 @@ class Bot(object):
 
         if mode == 1: # get behind ball
             self.add_avoid_ball_constraints(prog, x, N, ball)
-            self.add_mode_1_running_cost(prog, x, u, N, ball, w1=10, w2=1)
-        elif mode == 2: # cancel out the ball velocity
-            self.add_mode_2_running_cost(prog, x, u, N, ball, w1=10, w2=1)
-            self.add_mode_2_final_cost(prog, x, N, ball, w1=50, w2=10, w3=10)
-            pass
+            self.add_mode_1_running_cost(prog, x, u, N, ball, w1=1, w2=1)
         elif mode == 3: # single shot. not related to the other modes
             self.add_mode_3_running_cost(prog, x, u, N, ball)
             self.add_mode_3_final_cost(prog, x, u, N, ball)
+            #self.add_pos_constraint(prog, x, N, ball)
         # self.add_initial_constraint(prog, x, x_cur)
         # self.add_input_constraints(prog, u)
         # self.add_dynamic_constraints(prog, x, u, N, self.dt)
@@ -333,14 +329,8 @@ class Bot(object):
 
         solver = SnoptSolver()
         #solver = OsqpSolver()
-        try:
-            result = solver.Solve(prog)
-            u_res = result.GetSolution(u[0])
-            # print(result.get_optimal_cost())
-        except RuntimeError:
-            u_res = np.array([0, 0, 0])
-            print("Failed to find solution (NaN?)")
-
+        result = solver.Solve(prog)
+        u_res = result.GetSolution(u[0])
         x_res = result.GetSolution(x)
-        #print(u_res)
+        print(result.get_optimal_cost())
         return u_res, x_res
