@@ -107,7 +107,7 @@ class Bot(object):
         for k in range(N):
             prog.AddLinearConstraint(x[k][5] == 13) # z vel must be > 0
 
-    def add_mode_1_running_cost(self, prog, x, u, N, ball):
+    def add_mode_1_position_cost(self, prog, x, u, N, ball):
         # the robot wants to go behind the ball
         # the goal location is the location 2 robot diameters away from the ball 
         # and also in the direction of the balls movement
@@ -116,21 +116,25 @@ class Bot(object):
         bvx = ball.x[3]
         bvy = ball.x[4]
         ball_velocity = np.array([bvx, bvy])
-        for k in range(N):
-            curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
-            # find the location 2 robot diameters away from the ball in the direction of desired movement
-            bpx = curr_ball_x[0]
-            bpy = curr_ball_x[1]
-            if np.linalg.norm(ball_velocity) < 1e-4:  # Handle stationary ball case
-                # then the robot should orient itself in the direction of the goal
-                direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
-            else: 
-                direction = ball_velocity / np.linalg.norm(ball_velocity)
+        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
+
+        for k in range(N-1):
+            # # find the location 2 robot diameters away from the ball in the direction of desired movement
+            # bpx = curr_ball_x[0]
+            # bpy = curr_ball_x[1]
+            # if np.linalg.norm(ball_velocity) < 1e-4:  # Handle stationary ball case
+            #     # then the robot should orient itself in the direction of the goal
+            #     direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
+            # else: 
+            #     direction = ball_velocity / np.linalg.norm(ball_velocity)
             
-            offset_distance = 2 * self.diameter
-            goal_position = np.array([bpx, bpy]) + offset_distance * direction
-            x_e = x[k][:2] - goal_position
-            prog.AddQuadraticCost(1*(x_e.T) @ np.identity(2) @ (x_e))
+            # offset_distance = 2 * self.diameter
+            # goal_position = np.array([bpx, bpy]) + offset_distance * direction
+            # x_e = x[k][:2] - goal_position
+            # prog.AddQuadraticCost(1*(x_e.T) @ np.identity(2) @ (x_e))
+            prog.AddQuadraticCost(1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
+        prog.AddQuadraticCost(100*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
+
 
 
     def add_mode_3_position_cost(self, prog, x, u, N, ball):
@@ -185,7 +189,7 @@ class Bot(object):
 
         if mode == 1: # get behind ball
             self.add_avoid_ball_constraints(prog, x, N, ball)
-            self.add_mode_1_running_cost(prog, x, u, N, ball)
+            self.add_mode_1_position_cost(prog, x, u, N, ball)
 
         elif mode == 3: # single shot. not related to the other modes
             self.add_mode_3_position_cost(prog, x, u, N, ball)
@@ -196,5 +200,5 @@ class Bot(object):
         result = solver.Solve(prog)
         u_res = result.GetSolution(u[0])
         x_res = result.GetSolution(x)
-        print(result.get_optimal_cost())
+        #print(result.get_optimal_cost())
         return u_res, x_res

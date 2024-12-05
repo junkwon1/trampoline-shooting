@@ -13,7 +13,7 @@ from animator import create_animation
 robot = bot.Bot()
 
 x0 = np.array([0,0,0,0,0,13])
-ball_x0 = np.array([-1, -3, 5, -1, -3, 5])
+ball_x0 = np.array([-1, -3, 5, -3, -3, 5])
 bball = ball.Ball(ball_x0)
 tf = 15
 dt = .01
@@ -57,13 +57,16 @@ while t[-1] < tf:
         xf = x_res[-1]
         ball_xf = bball.simulate_ball_no_update(horizon)
 
-        if np.linalg.norm(xf[:3] - ball_xf[:3]) > .01:
-            mode = 3
+        if np.linalg.norm(xf[:3] - ball_xf[:3]) > 3 or horizon < .1:
+            print(np.linalg.norm(xf[:3] - ball_xf[:3]))
+            mode = 1 # big position error, pick mode 1
         else:
-            mode = 1
+            mode = 3
+        print('picked mode ', mode, ' for this bounce!')
+
 
     if mode == 1:
-        N = 10
+        N = 50
         dt = .01
         # in mode 1 just take a simple horizon, lowest sim fidelity
     
@@ -92,20 +95,20 @@ while t[-1] < tf:
 
     # simulate the ball after robot action is taken
     # check if mode 1 task has been accomplished
-    if mode == 1:
-        bvx = bball.x[3]
-        bvy = bball.x[4]
-        ball_velocity = np.array([bvx, bvy])
-        curr_ball_x = bball.simulate_ball_no_update(bball.get_time_to_touchdown())
-        # find the location 2 robot diameters away from the ball in the direction of desired movement
-        bpx = curr_ball_x[0]
-        bpy = curr_ball_x[1]
-        direction = (np.array([bpx, bpy]) - robot.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - robot.goal[:2])
-        offset_distance = 2 * robot.diameter
-        goal_position = np.array([bpx, bpy]) + offset_distance * direction
-        if np.linalg.norm(new_robot_x[:2] - goal_position) < .3:
-            mode = 3
-            print('mode 1 done')
+    # if mode == 1:
+    #     bvx = bball.x[3]
+    #     bvy = bball.x[4]
+    #     ball_velocity = np.array([bvx, bvy])
+    #     curr_ball_x = bball.simulate_ball_no_update(bball.get_time_to_touchdown())
+    #     # find the location 2 robot diameters away from the ball in the direction of desired movement
+    #     bpx = curr_ball_x[0]
+    #     bpy = curr_ball_x[1]
+    #     direction = (np.array([bpx, bpy]) - robot.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - robot.goal[:2])
+    #     offset_distance = 2 * robot.diameter
+    #     goal_position = np.array([bpx, bpy]) + offset_distance * direction
+    #     if np.linalg.norm(new_robot_x[:2] - goal_position) < .3:
+    #         mode = 3
+    #         print('mode 1 done')
     # check if mode 2 task has been accomplished
 
     robot_x.append(new_robot_x)
