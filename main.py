@@ -48,6 +48,12 @@ while t[-1] < tf:
     elif mode == 3:
         horizon = bball.get_time_to_touchdown()
         N = max(int(horizon/robot.dt), 2)
+        # print(N)
+
+    # determine if we need to 
+
+
+
     current_u_command = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
     # simulate the robot for robot action

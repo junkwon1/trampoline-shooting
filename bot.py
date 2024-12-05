@@ -15,7 +15,7 @@ class Bot(object):
         self.dt = 0.01
 
         self.goal = np.array([3, 3, 10]) # change to desired goal location!
-        self.goal = np.array([1, 3, 0.25]) # change to desired goal location!
+        self.goal = np.array([1, 3, 2]) # change to desired goal location!
 
 
         self.m = 5
@@ -266,10 +266,11 @@ class Bot(object):
         # prog.AddCost(w3*(np.linalg.norm(robot_v) - 10)**2)
 
     def add_mode_3_running_cost(self, prog, x, u, N, ball):
-        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
+        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
+        # print(curr_ball_x)
         x_e = x - curr_ball_x
-        for k in range(N-1):
-            prog.AddQuadraticCost(2*(x_e[k].T) @ self.Q @ (x_e[k]))
+        for k in range(N):
+            prog.AddQuadraticCost((x_e[k].T) @ self.Q @ (x_e[k]))
             # prog.AddQuadraticCost
 
     def add_mode_3_final_cost(self, prog, x, u, N, ball):
@@ -282,10 +283,8 @@ class Bot(object):
         # bvx_e = desired_ball_vel[0]
         # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
-        bv_e = np.vstack((bvx_e, bvy_e))
-        prog.AddCost(bv_e.T @ np.eye(2) @ bv_e)
-        prog.AddCost(bvx_e**2 + bvy_e**2)
-
+        bv_e = np.array([bvx_e, bvy_e])
+        prog.AddCost(50*(bv_e.T) @ np.identity(2) @ bv_e)
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
         prog = MathematicalProgram()
@@ -328,6 +327,7 @@ class Bot(object):
         try:
             result = solver.Solve(prog)
             u_res = result.GetSolution(u[0])
+            # print(result.get_optimal_cost())
         except RuntimeError:
             u_res = np.array([0, 0, 0])
             print("Failed to find solution (NaN?)")

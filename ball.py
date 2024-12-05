@@ -64,13 +64,13 @@ class Ball(object):
         vx += 0 
         vy += 0
         vz -= self.g * dt
-        if pz < 0:
+        if pz < 0 and vz < 0:
             # determine if we collided with ground or robot
             if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
                 # then the ball is within the radius of the robot away, so it collides with the robot
-                print('robot collsion! ', 'before: ', np.array([vx, vy, vz]))
+                print('robot collsion! ', 'before: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
                 vx, vy, vz = self.robot_bounce(curr_v=np.array([vx, vy, vz]), robot_state=robot_state)
-                print('robot collsion! ', 'after: ', np.array([vx, vy, vz]))
+                print('robot collsion! ', 'after: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
             else:
                 print('ground collsion! ', 'before: ', np.array([vx, vy, vz]))
                 vx, vy, vz = self.bounce(curr_v=np.array([vx, vy, vz])) # update velocity according to ground bounce
@@ -153,7 +153,7 @@ class Ball(object):
         """
         discriminant = vz**2 - 2 * 9.81 * h
         # if (discriminant >= 0):
-        deltaT = (vz + discriminant**0.5) / (9.81**2) 
+        deltaT = (vz + discriminant**0.5) / (9.81)
         dx = goalx - px
         dy = goaly - py
         return (dx/deltaT, dy/deltaT)
