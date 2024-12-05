@@ -107,107 +107,7 @@ class Bot(object):
         for k in range(N):
             prog.AddLinearConstraint(x[k][5] == 13) # z vel must be > 0
 
-
-    def add_running_cost(self, prog, x, u, N, ball, w1, w2, w3):
-        for k in range(N-1):
-            # calculate the position of the ball
-            curr_ball_x = ball.simulate_ball_no_update(k*self.dt)
-            pos_x_e = x[k][:3] - curr_ball_x[:3]
-
-            #prog.AddQuadraticCost(w1*(pos_x_e.T) @ np.identity(3) @ (pos_x_e))
-
-            # add a cost on the robot z velocity not being desired
-            vz_des = ((2 * 9.81 * self.goal[2]) ** 0.5 - ball.COR * curr_ball_x[5]) / ball.COR
-            vze = x[k][5] - vz_des
-            #prog.AddQuadraticCost(w3*vze**2)
-
-            # add a cost on control action
-            prog.AddQuadraticCost(w2*(u[k].T) @ self.R @ (u[k]))
-    
-    def add_final_position_cost(self, prog: MathematicalProgram, x, N, ball, w):
-        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
-        x_e = x[-1] - curr_ball_x
-
-        # add a cost on the final robot pos not being at the ball
-        prog.AddQuadraticCost(w*(x_e[:3].T) @ np.identity(3) @ (x_e[:3]))
-
-    def add_final_velocity_cost(self, prog, x, N, ball, w1, w2):
-        # add a cost for the robot not having the velocity that launches the ball into the goal
-        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
-        vx_des = 0
-        vy_des = 0
-
-        # cost to have a velocity towards the goal
-        goal_dir = self.goal[:2] - x[-1][:2]
-        cos_theta = np.dot(x[-1][3:5], goal_dir)
-        alignment_cost = 1 - cos_theta 
-        prog.AddCost(w2*alignment_cost)
-
-        vz_des = ((2 * 9.81 * self.goal[2]) ** 0.5 - ball.COR * curr_ball_x[5]) / ball.COR
-        # print('vz_des: ', vz_des)
-        vze = x[-1][5] - vz_des
-        prog.AddQuadraticCost(w1*vze**2)
-
-    def add_switch_behavior_cost(self, prog, x, u, N, ball):
-        """
-        Encode a running cost that encodes the following behavior:
-
-        if the ball doesn't have enough height to reach the goal in z, the robot should try to cancel out its
-        in-plane velocities
-
-        if the ball does have enough height to reach the goal in z, the robot should try to hit the ball
-        towards the goal
-
-        the ball's peak height should be a final cost? this is a switch... might not be easy to do and
-        might have to use hybrid mode methods potentially
-        - looks like you can add conditional costs, so we can implement this behavior that way
-
-        ball should be a ball object.. assuming that the ball's x parameter is updated properly alongside
-        the robot state
-        """
-        # first add a running cost on the position of the robot not being near the ball
-        # NOTE add_running_cost already does this!
-
-
-
-        # for the state of the ball at touchdown, we want to get
-        h_max = ball.x[5]**2 / (2 * 9.81) + ball.x[2] # max height reachable by ball before robot intervention
-        goal_z = self.goal[2]
-
-        if h_max < goal_z:
-            # add additional costs to cancel out ball the xy velocity
-            ball_vel_in_plane = ball.x[3:5]
-
-            # NOTE: final cost on cancelling out ball velocity on collision
-            # put velocity in "error" coords
-            # robot must travel faster than the ball for this to cancel out
-            v_e = (x[-1][3:5] * ball.mu_robot) - (-ball_vel_in_plane)
-            velocity_cancelling_cost = 5 * v_e.T @ np.identity(2) @ v_e
-            prog.AddQuadraticCost(velocity_cancelling_cost)
-
-            # NOTE: final cost on increasing ball z velocity to be sufficient
-            vz_req = ball.x[2] + ((2 * 9.81 * goal_z) **.5 - (ball.COR * ball.x[2])) / ball.COR # this is the desired vz of robot NOTE COUDL BE WRONG
-            z_velocity_cost = (x[-1][5] - vz_req) * (x[-1][5] - vz_req) # scale differently here?
-            prog.AddQuadraticCost(z_velocity_cost)
-
-        else:
-            # add costs on shooting towards the goal
-
-            # NOTE add_final_cost does this
-
-            # for now add a dumb cost that just says the robot should be moving towards the goal
-            goal_dir = self.goal[:2] - x[-1][:2]
-            cos_theta = np.dot(x[-1][3:5], goal_dir) / (np.linalg.norm(x[-1][3:5]) * np.linalg.norm(goal_dir))
-            alignment_cost = 1 - cos_theta 
-            prog.AddCost(alignment_cost)
-            
-            # still probably want a final cost on increasing ball z velocity to be sufficient
-            vz_req = ball.x[2] + ((2 * 9.81 * goal_z) **.5 - (ball.COR * ball.x[2])) / ball.COR # this is the desired vz of robot NOTE COUDL BE WRONG
-            z_velocity_cost = (x[-1][5] - vz_req) * (x[-1][5] - vz_req) # scale differently here?
-            prog.AddQuadraticCost(z_velocity_cost)
-
-
-    def add_mode_1_running_cost(self, prog, x, u, N, ball, w1, w2):
+    def add_mode_1_running_cost(self, prog, x, u, N, ball):
         # the robot wants to go behind the ball
         # the goal location is the location 2 robot diameters away from the ball 
         # and also in the direction of the balls movement
@@ -227,45 +127,13 @@ class Bot(object):
             else: 
                 direction = ball_velocity / np.linalg.norm(ball_velocity)
             
-            direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
-
             offset_distance = 2 * self.diameter
             goal_position = np.array([bpx, bpy]) + offset_distance * direction
             x_e = x[k][:2] - goal_position
-            prog.AddQuadraticCost(w1*(x_e.T) @ np.identity(2) @ (x_e))
-    
-    def add_mode_2_running_cost(self, prog, x, u, N, ball, w1, w2):
-        for k in range(N-1):
-            curr_ball_x = ball.simulate_ball_no_update(k*self.dt)
-            x_e = x[k][:2] - curr_ball_x[:2]
-            prog.AddQuadraticCost(w1*(x_e.T) @ np.identity(2) @ (x_e))
-            bpx = curr_ball_x[0]
-            bpy = curr_ball_x[1]
-            direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
-            robot_v = x[k][3:5]
-            prog.AddCost(-1*w1*np.dot(robot_v, (x[k][:2] - self.goal[:2])))
-            prog.AddQuadraticCost(w2*(u[k].T) @ self.R @ (u[k]))
-
-    def add_mode_2_final_cost(self, prog, x, N, ball, w1, w2, w3):
-        # add final cost that robot must meet the ball at its touchdown
-        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
-        x_e = x[-1][:2] - curr_ball_x[:2]
-        prog.AddQuadraticCost(w1*(x_e.T) @ np.identity(2) @ (x_e))
-
-        # add final cost that the robot must have a velocity to cancel the ball velocity
-        # TODO 
-        # for now just hit it towards the goal
-        bpx = curr_ball_x[0]
-        bpy = curr_ball_x[1]
-        direction = (np.array([bpx, bpy]) - self.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - self.goal[:2])
-        robot_v = x[-1][3:5]
-        #prog.AddCost(-1*w2*np.dot(robot_v, direction))
+            prog.AddQuadraticCost(1*(x_e.T) @ np.identity(2) @ (x_e))
 
 
-        # add final cost that the velocity in the xy plane be 10 HACK JUST FOR TESTING
-        # prog.AddCost(w3*(np.linalg.norm(robot_v) - 10)**2)
-
-    def add_mode_3_running_cost(self, prog, x, u, N, ball):
+    def add_mode_3_position_cost(self, prog, x, u, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
         for k in range(N-1):
             prog.AddQuadraticCost(.1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
@@ -276,7 +144,7 @@ class Bot(object):
             
             # prog.AddQuadraticCost
 
-    def add_mode_3_final_cost(self, prog, x, u, N, ball):
+    def add_mode_3_velocity_cost(self, prog, x, u, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown()) # is this the ball state at whatever point it next contacts ground?
         new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
         desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
@@ -287,8 +155,12 @@ class Bot(object):
         # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
         bv_e = np.array([bvx_e, bvy_e])
-
         prog.AddCost(1*(bv_e.T) @ np.identity(2) @ bv_e)
+
+
+        # add a running cost on the last third of the horizon -> that the robot should try to accelerate towards the ball
+        for k in range(int(1*N / 3), N-1):
+            prog.AddCost(.1*(bv_e.T) @ np.identity(2) @ bv_e)
 
         
         #prog.AddQuadraticCost(1*((x[N-1]-curr_ball_x).T) @ self.Q @ (x[N-1]-curr_ball_x))
@@ -313,19 +185,11 @@ class Bot(object):
 
         if mode == 1: # get behind ball
             self.add_avoid_ball_constraints(prog, x, N, ball)
-            self.add_mode_1_running_cost(prog, x, u, N, ball, w1=1, w2=1)
+            self.add_mode_1_running_cost(prog, x, u, N, ball)
+
         elif mode == 3: # single shot. not related to the other modes
-            self.add_mode_3_running_cost(prog, x, u, N, ball)
-            self.add_mode_3_final_cost(prog, x, u, N, ball)
-            #self.add_pos_constraint(prog, x, N, ball)
-        # self.add_initial_constraint(prog, x, x_cur)
-        # self.add_input_constraints(prog, u)
-        # self.add_dynamic_constraints(prog, x, u, N, self.dt)
-        # self.add_z_vel_constraint(prog, x, N)
-        # self.add_running_cost(prog, x, u, N, ball, w1=1, w2=.1, w3 = 5)
-        # #self.add_switch_behavior_cost(prog, x, u, N, ball)
-        # self.add_final_position_cost(prog, x, N, ball, w=10)
-        # self.add_final_velocity_cost(prog, x, N, ball, w1=10, w2=10)
+            self.add_mode_3_position_cost(prog, x, u, N, ball)
+            self.add_mode_3_velocity_cost(prog, x, u, N, ball)
 
         solver = SnoptSolver()
         #solver = OsqpSolver()
