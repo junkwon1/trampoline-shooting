@@ -282,8 +282,8 @@ class Bot(object):
         # bvx_e = desired_ball_vel[0]
         # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
-        bv_e = np.vstack((bvx_e, bvy_e))
-        prog.AddCost(bv_e.T @ np.eye(2) @ bv_e)
+        bv_e = np.array([bvx_e, bvy_e])
+        prog.AddCost((bv_e.T) @ np.identity(2) @ bv_e)
 
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
