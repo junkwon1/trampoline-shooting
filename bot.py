@@ -269,7 +269,7 @@ class Bot(object):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
         x_e = x - curr_ball_x
         for k in range(N-1):
-            prog.AddQuadraticCost((x_e[k].T) @ self.Q @ (x_e[k]))
+            prog.AddQuadraticCost(2*(x_e[k].T) @ self.Q @ (x_e[k]))
             # prog.AddQuadraticCost
 
     def add_mode_3_final_cost(self, prog, x, u, N, ball):
@@ -284,6 +284,7 @@ class Bot(object):
         # print("Adding cost")
         bv_e = np.vstack((bvx_e, bvy_e))
         prog.AddCost(bv_e.T @ np.eye(2) @ bv_e)
+        prog.AddCost(bvx_e**2 + bvy_e**2)
 
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
