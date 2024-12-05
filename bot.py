@@ -15,7 +15,7 @@ class Bot(object):
         self.dt = 0.01
 
         self.goal = np.array([3, 3, 10]) # change to desired goal location!
-        self.goal = np.array([1, 3, 2]) # change to desired goal location!
+        self.goal = np.array([4, 2, 0]) # change to desired goal location!
 
 
         self.m = 5
@@ -24,8 +24,8 @@ class Bot(object):
         # self.umin = -20
         # self.umax = 20
 
-        self.umin = -50
-        self.umax = 50
+        self.umin = -300
+        self.umax = 300
         # self.uminz = -200
         # self.umaxz = 200
         # self.umin = 0
@@ -40,7 +40,7 @@ class Bot(object):
         self.Q[1,1] = 1
         # self.Q[2,2] = 1
 
-        self.R = 0.01*np.identity(3)
+        self.R = 0.00001*np.identity(3)
 
         A = np.zeros((6,6))
         A[0, 3] = 1
@@ -82,6 +82,26 @@ class Bot(object):
             for i in range (self.n_x):
                 prog.AddLinearEqualityConstraint(x[k+1][i] == expr[i])
     
+    def add_contact_constraint(self, prog, x, N, ball):
+        vz = ball.x[5]
+
+        tf = (vz + (vz**2 + 2 * ball.x[2]*9.81)**0.5)/(9.81)
+        curr_ball_x = ball.simulate_ball_no_update(tf) # is this the ball state at whatever point it next contacts ground?
+
+        new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
+        desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
+        expr = np.array([new_ball_v[0] - desired_ball_vel[0], new_ball_v[1] - desired_ball_vel[1]])
+        expr1 = new_ball_v[0] - desired_ball_vel[0]
+        expr2 = new_ball_v[1] - desired_ball_vel[1]
+        prog.AddConstraint(expr1 == 0)
+        prog.AddConstraint(expr2 == 0)
+        # prog.AddBoundingBoxConstraint(0, 0, expr1)
+        # prog.AddBoundingBoxConstraint(0, 0, expr2)
+
+        contacting = ((x[-1][0] - curr_ball_x[0])**2  + (x[-1][1] - curr_ball_x[1])**2)**0.5
+        # prog.AddBoundingBoxConstraint(0, self.diameter/2, contacting)
+        # prog.AddConstraint(contacting <= self.diameter/3)
+
     def add_avoid_ball_constraints(self, prog, x, N, ball):
         # add constraint that the robot must avoid some region around the ball
         for k in range(N-1):
@@ -266,7 +286,10 @@ class Bot(object):
         # prog.AddCost(w3*(np.linalg.norm(robot_v) - 10)**2)
 
     def add_mode_3_running_cost(self, prog, x, u, N, ball):
-        curr_ball_x = ball.simulate_ball_no_update(N*self.dt)
+        vz = ball.x[5]
+
+        tf = (vz + (vz**2 + 2 * ball.x[2]*9.81)**0.5)/(9.81)
+        curr_ball_x = ball.simulate_ball_no_update(tf)
         new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
         desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
         x_e = x - curr_ball_x
@@ -275,14 +298,19 @@ class Bot(object):
         bv_e = np.array([bvx_e, bvy_e])
         for k in range(N-1):
             prog.AddQuadraticCost((x_e[k].T) @ self.Q @ (x_e[k]))
-            # prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
-            prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
+            # prog.AddQuadraticCost((u[k].T) @ self.R @ (u[k]))
+            # prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
         prog.AddQuadraticCost((x_e[N-1].T) @ self.Q @ x_e[N-1])
             
             # prog.AddQuadraticCost
 
     def add_mode_3_final_cost(self, prog, x, u, N, ball):
-        curr_ball_x = ball.simulate_ball_no_update(N*self.dt) # is this the ball state at whatever point it next contacts ground?
+        # 0 = vzt - 9.81/2t^2 + pz
+        vz = ball.x[5]
+
+        tf = (vz + (vz**2 + 2 * ball.x[2]*9.81)**0.5)/(9.81)
+        curr_ball_x = ball.simulate_ball_no_update(tf) # is this the ball state at whatever point it next contacts ground?
+
         new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
         desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
         # print(desired_ball_vel)
@@ -292,8 +320,8 @@ class Bot(object):
         # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
         bv_e = np.array([bvx_e, bvy_e])
-        prog.AddCost(2*(bv_e.T) @ np.identity(2) @ bv_e)
-        # prog.AddCost(bvx_e**2 + bvy_e**2)
+        # print((bv_e) @ np.identity(2) @ (bv_e.T))
+        prog.AddCost(5*(bv_e) @ np.identity(2) @ (bv_e.T))
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
         prog = MathematicalProgram()
@@ -310,14 +338,17 @@ class Bot(object):
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
         self.add_z_vel_constraint(prog, x, N)
+        self.add_contact_constraint(prog, x, N, ball)
 
 
         if mode == 1: # get behind ball
             self.add_avoid_ball_constraints(prog, x, N, ball)
             self.add_mode_1_running_cost(prog, x, u, N, ball, w1=10, w2=1)
+            print("MODE 1")
         elif mode == 2: # cancel out the ball velocity
             self.add_mode_2_running_cost(prog, x, u, N, ball, w1=10, w2=1)
             self.add_mode_2_final_cost(prog, x, N, ball, w1=50, w2=10, w3=10)
+            print("MODE 2")
             pass
         elif mode == 3: # single shot. not related to the other modes
             self.add_mode_3_running_cost(prog, x, u, N, ball)
@@ -336,11 +367,21 @@ class Bot(object):
         try:
             result = solver.Solve(prog)
             u_res = result.GetSolution(u[0])
+            # print(f"{x_cur}, {ball}, {N}")
             # print(result.get_optimal_cost())
+            print(result.get_solution_result())
         except RuntimeError:
             u_res = np.array([0, 0, 0])
             print("Failed to find solution (NaN?)")
 
         x_res = result.GetSolution(x)
+        # print(x_res[-1])
         #print(u_res)
+        # curr_ball_x = ball.simulate_ball_no_update((N)*self.dt)
+        # new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x_res[-1])
+        # print(curr_ball_x)
+        # print(new_ball_v)
+        # print(self.goal)
+        # desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
+        # print(desired_ball_vel)
         return u_res, x_res

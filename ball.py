@@ -66,7 +66,7 @@ class Ball(object):
         vz -= self.g * dt
         if pz < 0 and vz < 0:
             # determine if we collided with ground or robot
-            if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
+            if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)) or True:
                 # then the ball is within the radius of the robot away, so it collides with the robot
                 print('robot collsion! ', 'before: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
                 vx, vy, vz = self.robot_bounce(curr_v=np.array([vx, vy, vz]), robot_state=robot_state)
@@ -151,11 +151,15 @@ class Ball(object):
         """
         Calculate the desired velocity of the ball such that it will go in the basket
         """
+        # vz = 10
         discriminant = vz**2 - 2 * 9.81 * h
         # if (discriminant >= 0):
         deltaT = (vz + discriminant**0.5) / (9.81)
+        # deltaT = 1
         dx = goalx - px
         dy = goaly - py
+        # print(deltaT)
+        # print(deltaT)
         return (dx/deltaT, dy/deltaT)
         print(vz**2 - 2*9.81 *h)
         return 0

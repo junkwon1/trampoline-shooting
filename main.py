@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 import animator
 from animator import create_animation
+import math
 
 
 robot = bot.Bot()
@@ -47,7 +48,7 @@ while t[-1] < tf:
         #N = min(N, 50) # make sure horizon isnt too big
     elif mode == 3:
         horizon = bball.get_time_to_touchdown()
-        N = max(int(horizon/robot.dt), 2)
+        N = max(math.ceil(horizon/robot.dt), 2)
         # print(N)
 
     # determine if it is worth trying to make the ball in once bounce
