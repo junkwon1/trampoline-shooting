@@ -331,6 +331,6 @@ class Bot(object):
             u_res = np.array([0, 0, 0])
             print("Failed to find solution (NaN?)")
 
-        
+        x_res = result.GetSolution(x)
         #print(u_res)
-        return u_res
+        return u_res, x_res
