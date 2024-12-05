@@ -273,14 +273,17 @@ class Bot(object):
             # prog.AddQuadraticCost
 
     def add_mode_3_final_cost(self, prog, x, u, N, ball):
-        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
+        curr_ball_x = ball.simulate_ball_no_update(N*self.dt) # is this the ball state at whatever point it next contacts ground?
         new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
-        desired_ball_vel = ball.calc_desired_velo(x[-1][0], x[-1][1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
+        desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
         # print(desired_ball_vel)
         bvx_e = new_ball_v[0] - desired_ball_vel[0]
         bvy_e = new_ball_v[1] - desired_ball_vel[1]
+        # bvx_e = desired_ball_vel[0]
+        # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
-        prog.AddCost(100*(bvx_e**2) + 100*(bvy_e**2))
+        bv_e = np.vstack((bvx_e, bvy_e))
+        prog.AddCost(bv_e.T @ np.eye(2) @ bv_e)
 
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
