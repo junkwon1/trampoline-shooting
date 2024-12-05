@@ -55,8 +55,8 @@ while t[-1] < tf:
         current_u_command, x = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
         touchdown_x = bball.simulate_ball_no_update(bball.get_time_to_touchdown())
         v_des = bball.calc_desired_velo(touchdown_x[0], touchdown_x[1], touchdown_x[5], robot.goal[0], robot.goal[1], robot.goal[2])
-        if np.linalg.norm(x[-1][:3] - touchdown_x[:3]) > 1e-3 or np.linalg.norm(x[-1][3:] - v_des) > 1e-3:
-            print('1 bounce infeasible')
+        if np.linalg.norm(x[-1][:3] - touchdown_x[:3]) > 1e-2 or np.linalg.norm(x[-1][3:] - v_des) > 1e-2:
+            print('1 bounce infeasible', ' pos error: ', np.linalg.norm(x[-1][:3] - touchdown_x[:3]), ' vel error: ', np.linalg.norm(x[-1][3:] - v_des))
             # TODO actually do something instead of a warning
 
 
