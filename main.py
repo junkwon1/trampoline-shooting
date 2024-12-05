@@ -33,6 +33,7 @@ ball_x = [ball_x0]
 u = [np.zeros((3,))]
 t = [t0]
 mode = 1 # start in mode 1
+mode = 3
 while t[-1] < tf:
     current_t = t[-1]
     current_robot_x = robot_x[-1]
@@ -44,7 +45,9 @@ while t[-1] < tf:
         horizon = bball.get_time_to_touchdown()# change horizon if ball isnt moving
         N = max(int(horizon/robot.dt), 2)
         #N = min(N, 50) # make sure horizon isnt too big
-    
+    elif mode == 3:
+        horizon = bball.get_time_to_touchdown()
+        N = max(int(horizon/robot.dt), 2)
     current_u_command = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
     # simulate the robot for robot action
@@ -87,7 +90,7 @@ while t[-1] < tf:
     ball_x.append(bball.x)
     u.append(current_u_command)
     t.append(t[-1] + dt)
-    #print(t[-1])
+    # print(t[-1])
     #print(t[-1], "u: ", u[-1], " vz: ", robot_x[-1][5])
 
 

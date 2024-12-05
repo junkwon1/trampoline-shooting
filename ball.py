@@ -76,8 +76,8 @@ class Ball(object):
                 vx, vy, vz = self.bounce(curr_v=np.array([vx, vy, vz])) # update velocity according to ground bounce
                 print('ground collsion! ', 'after: ', np.array([vx, vy, vz]))
 
-        elif self.is_colided(None):
-            pass # currently should never go here 
+        # elif self.is_colided(None):
+            # pass # currently should never go here 
         
         self.x = np.array([px, py, pz, vx, vy, vz])
         return self.x
@@ -146,6 +146,19 @@ class Ball(object):
         ax = fig.add_subplot(111, projection='3d')
         ax.plot(xlist, ylist, zlist)
         plt.show()
+
+    def calc_desired_velo(self, px, py, vz, h, goalx, goaly):
+        """
+        Calculate the desired velocity of the ball such that it will go in the basket
+        """
+        discriminant = vz**2 - 2 * 9.81 * h
+        # if (discriminant >= 0):
+        deltaT = (vz + discriminant**0.5) / (9.81**2) 
+        dx = goalx - px
+        dy = goaly - py
+        return (dx/deltaT, dy/deltaT)
+        print(vz**2 - 2*9.81 *h)
+        return 0
 
 """
 Testing

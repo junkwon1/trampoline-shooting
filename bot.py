@@ -2,6 +2,7 @@ import numpy as np
 from pydrake.solvers import MathematicalProgram, Solve, OsqpSolver, SnoptSolver
 import pydrake.symbolic as sym
 from pydrake.all import if_then_else
+import math
 
 
 from pydrake.all import MonomialBasis, OddDegreeMonomialBasis, Variables
@@ -14,6 +15,8 @@ class Bot(object):
         self.dt = 0.01
 
         self.goal = np.array([3, 3, 10]) # change to desired goal location!
+        self.goal = np.array([1, 3, 0.25]) # change to desired goal location!
+
 
         self.m = 5
         self.diameter = .5 # robot diameter in m
@@ -35,7 +38,7 @@ class Bot(object):
         self.Q = np.zeros((6,6))
         self.Q[0,0] = 1
         self.Q[1,1] = 1
-        self.Q[2,2] = 1
+        # self.Q[2,2] = 1
 
         self.R = 0.5*np.identity(3)
 
@@ -262,6 +265,23 @@ class Bot(object):
         # add final cost that the velocity in the xy plane be 10 HACK JUST FOR TESTING
         # prog.AddCost(w3*(np.linalg.norm(robot_v) - 10)**2)
 
+    def add_mode_3_running_cost(self, prog, x, u, N, ball):
+        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
+        x_e = x - curr_ball_x
+        for k in range(N-1):
+            prog.AddQuadraticCost((x_e[k].T) @ self.Q @ (x_e[k]))
+            # prog.AddQuadraticCost
+
+    def add_mode_3_final_cost(self, prog, x, u, N, ball):
+        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
+        new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
+        desired_ball_vel = ball.calc_desired_velo(x[-1][0], x[-1][1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
+        # print(desired_ball_vel)
+        bvx_e = new_ball_v[0] - desired_ball_vel[0]
+        bvy_e = new_ball_v[1] - desired_ball_vel[1]
+        # print("Adding cost")
+        prog.AddCost(100*(bvx_e**2) + 100*(bvy_e**2))
+
 
     def compute_MPC_feedback(self, x_cur, ball, N, mode): 
         prog = MathematicalProgram()
@@ -287,8 +307,9 @@ class Bot(object):
             self.add_mode_2_running_cost(prog, x, u, N, ball, w1=10, w2=1)
             self.add_mode_2_final_cost(prog, x, N, ball, w1=50, w2=10, w3=10)
             pass
-
-
+        elif mode == 3: # single shot. not related to the other modes
+            self.add_mode_3_running_cost(prog, x, u, N, ball)
+            self.add_mode_3_final_cost(prog, x, u, N, ball)
         # self.add_initial_constraint(prog, x, x_cur)
         # self.add_input_constraints(prog, u)
         # self.add_dynamic_constraints(prog, x, u, N, self.dt)
@@ -300,8 +321,13 @@ class Bot(object):
 
         solver = SnoptSolver()
         #solver = OsqpSolver()
-        result = solver.Solve(prog)
+        try:
+            result = solver.Solve(prog)
+            u_res = result.GetSolution(u[0])
+        except RuntimeError:
+            u_res = np.array([0, 0, 0])
+            print("Failed to find solution (NaN?)")
 
-        u_res = result.GetSolution(u[0])
+        
         #print(u_res)
         return u_res
