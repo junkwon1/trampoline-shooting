@@ -16,7 +16,7 @@ class Bot(object):
         self.dt = 0.01
 
         #self.goal = np.array([3, 3, 10]) # change to desired goal location!
-        self.goal = np.array([0, 0, 5]) # change to desired goal location!
+        self.goal = np.array([0, 0, 8]) # change to desired goal location!
 
 
         self.m = 5
