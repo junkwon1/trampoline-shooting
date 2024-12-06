@@ -61,6 +61,7 @@ class Ball(object):
             # determine if we collided with ground or robot
             if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
                 # then the ball is within the radius of the robot away, so it collides with the robot
+                print(robot_state[3:])
                 print('robot collsion! ', 'before: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
                 vx, vy, vz = self.robot_bounce(curr_v=np.array([vx, vy, vz]), robot_state=robot_state)
                 print('robot collsion! ', 'after: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
@@ -159,18 +160,25 @@ class Ball(object):
 
         return np.array([dx/deltaT, dy/deltaT])
 
+    def calc_robot_desired_velo(self, px, vx, py, vy, vz_b_f, h, goalx, goaly, vzr):
+        """
+        Calculate the desired velocity of the robot such that the ball will go in the basket
+        """
+        vx_r_des = ((.5*self.g*(goalx - px) / ((vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5)) - vx)*(1/self.mu_robot) + vx
+        vy_r_des = ((.5*self.g*(goaly - py) / ((vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5)) - vy)*(1/self.mu_robot) + vy
 
+        return np.array([vx_r_des, vy_r_des])
 """
 Testing
 """
-# x0 = np.array([0, 0, 0, -5, -5, -10])
-# robot_state = np.array([0, 0, 0, 10, 10, 10])
-# ball = Ball(x0)
-# print('robot_bounce: ', ball.robot_bounce(ball.x[3:], robot_state))
-# x0 = np.array([0, 0, 0, -5, -5, -10])
-# ball = Ball(x0)
-# print('floor_bounce: ', ball.bounce(ball.x[3:]))
+x0 = np.array([0, 0, 0, -5, -5, -10])
+robot_state = np.array([0, 0, 0, 10, 10, 15])
+ball = Ball(x0)
+print('robot_bounce: ', ball.robot_bounce(ball.x[3:], robot_state))
+print('floor_bounce: ', ball.bounce(ball.x[3:]))
 
+# post_ball_vz = -1*ball.COR*(curr_ball_x[5] - self.vz)
+# post_ball_vz = ball.robot_bounce((curr_ball_x[3:]), x[-1])[2]
 
 # x0 = np.array([3, 3, 3, 3, -5, 3])
 # ball = Ball(x0)

@@ -15,10 +15,10 @@ robot = bot.Bot()
 
 x0 = np.array([0,0,0,0,0,13])
 ball_x0 = np.array([-1, -3, 5, -3, -3, 5])
-ball_x0 = np.array([-1, -1, 5, 1, 1, 10])
+ball_x0 = np.array([0, 0, 5, -1, -2, 10])
 
 bball = ball.Ball(ball_x0)
-tf = 10
+tf = 15
 dt = .01
 t0 = 0
 
