@@ -125,7 +125,7 @@ while t[-1] < tf:
 
     # print then break if ball touches the goal
     error = np.linalg.norm(bball.x[:3] - robot.goal)
-    if error < .1:
+    if error < .25:
        print("GOAL")
        break
     # print(t[-1])

@@ -19,13 +19,13 @@ class Bot(object):
 
 
         self.m = 5
-        self.diameter = 0.5 # robot diameter in m
+        self.diameter = 1 # robot diameter in m
 
         # self.umin = -20
         # self.umax = 20
 
-        self.umin =-50
-        self.umax = 50
+        self.umin =-200
+        self.umax = 200
         # self.uminz = -200
         # self.umaxz = 200
         # self.umin = 0
@@ -91,7 +91,7 @@ class Bot(object):
 
         contacting = ((x[-1][0] - curr_ball_x[0])**2  + (x[-1][1] - curr_ball_x[1])**2)**0.5
         # prog.AddBoundingBoxConstraint(0, self.diameter/2, contacting)
-        prog.AddConstraint(contacting <= self.diameter/3)
+        # prog.AddConstraint(contacting <= self.diameter/2)
 
     def add_dynamic_constraints(self, prog, x, u, N, T):
         Ac = np.identity(6) + self.A * T
@@ -158,12 +158,15 @@ class Bot(object):
 
 
     def add_mode_3_position_cost(self, prog, x, u, N, ball):
+        vz = ball.x[5]
+
+        tf = (vz + (vz**2 + 2 * ball.x[2]*9.81)**0.5)/(9.81)
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
         for k in range(N-1):
-            prog.AddQuadraticCost(0.5*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
+            prog.AddQuadraticCost(3*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
             #prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
             #prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
-            pass
+            # pass
         prog.AddQuadraticCost(1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
             
             # prog.AddQuadraticCost
@@ -179,7 +182,7 @@ class Bot(object):
         # bvy_e = desired_ball_vel[1]
         # print("Adding cost")
         bv_e = np.array([bvx_e, bvy_e])
-        prog.AddCost(1*(bv_e.T) @ np.identity(2) @ bv_e)
+        prog.AddCost(1*(bv_e.T) @ np.identity(2) @ (bv_e))
 
 
         # add a running cost on the last third of the horizon -> that the robot should try to accelerate towards the ball
@@ -205,7 +208,7 @@ class Bot(object):
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
         self.add_z_vel_constraint(prog, x, N)
-        # self.add_contact_constraint(prog, x, N, ball)
+        self.add_contact_constraint(prog, x, N, ball)
 
 
         if mode == 1: # get behind ball
@@ -214,7 +217,7 @@ class Bot(object):
 
         elif mode == 3: # single shot. not related to the other modes
             self.add_mode_3_position_cost(prog, x, u, N, ball)
-            self.add_mode_3_velocity_cost(prog, x, u, N, ball)
+            # self.add_mode_3_velocity_cost(prog, x, u, N, ball)
 
         solver = SnoptSolver()
         #solver = OsqpSolver()
