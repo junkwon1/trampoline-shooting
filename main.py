@@ -14,10 +14,10 @@ import math
 robot = bot.Bot()
 
 x0 = np.array([0,0,0,0,0,13])
-ball_x0 = np.array([0, 0, 5, -2, -2, 10])
+ball_x0 = np.array([0, 0, 5, -7, -5, 7])
 
 bball = ball.Ball(ball_x0)
-tf = 15
+tf = 50
 dt = .01
 t0 = 0
 
@@ -53,20 +53,13 @@ while t[-1] < tf:
         horizon = bball.get_time_to_touchdown()
         t_bounce = t[-1] + horizon 
         # run mode 3
-        _, x_res = robot.compute_MPC_feedback(current_robot_x, bball, max(int(horizon/dt), 2), mode=3)
-        xf = x_res[-1]
-        ball_xf = bball.simulate_ball_no_update(horizon)
-        print(np.linalg.norm(xf[:3] - ball_xf[:3]))
-        if np.linalg.norm(xf[:3] - ball_xf[:3]) > 20:
-            
-            mode = 2 # big position error, pick mode 1
-            if mode_decided:
-                mode = 3
-                mode_decided = False
-            else:
-                mode_decided = True
+        _, x_res, cost, sol_result = robot.compute_MPC_feedback(current_robot_x, bball, max(int(horizon/dt), 2), mode=2)
+        print(sol_result)
+
+        if cost > 1 or cost == 0.0:
+            mode = 3 # big error pick mode 3
         else:
-            mode = 3
+            mode = 2
         print('picked mode ', mode, ' for this bounce!')
 
     if mode == 1:
@@ -103,7 +96,9 @@ while t[-1] < tf:
         dt = scaled_dt
         N = max(int(horizon/dt), 2)
 
-    current_u_command, _ = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
+    current_u_command, _ , cost, output= robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
+    print(output)
+    
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
     # simulate the robot for robot action
     bball = ball.Ball(bball.simulate_ball(robot, current_robot_x, dt))
@@ -121,7 +116,7 @@ while t[-1] < tf:
 
     # print then break if ball touches the goal
     error = np.linalg.norm(bball.x[:3] - robot.goal)
-    if error < .1:
+    if error < .5:
        print("GOAL")
        break
     # print(t[-1])

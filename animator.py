@@ -37,7 +37,7 @@ class BotBallVisualizer:
         new_ball_pz = np.interp(self.final_times, self.elapsed, [a[2] for a in self.ball_x])
 
         # plot the robot
-        bot_diameter = 1.0
+        bot_diameter = 2.0
 
         theta = np.linspace(0, 2 * np.pi, 50)
         # center = new_ball_px[i][0:2]

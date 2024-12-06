@@ -163,7 +163,13 @@ class Ball(object):
     def calc_robot_desired_velo(self, px, vx, py, vy, vz_b_f, h, goalx, goaly, vzr):
         """
         Calculate the desired velocity of the robot such that the ball will go in the basket
-        """
+        """            
+        discriminant = vz_b_f**2 - 2 * 9.81 * h
+
+        while (discriminant < 0):
+            h = h*.9
+            discriminant = vz_b_f**2 - 2 * 9.81 * h
+        
         vx_r_des = ((.5*self.g*(goalx - px) / ((vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5)) - vx)*(1/self.mu_robot) + vx
         vy_r_des = ((.5*self.g*(goaly - py) / ((vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5)) - vy)*(1/self.mu_robot) + vy
 

@@ -20,7 +20,7 @@ class Bot(object):
 
 
         self.m = 5
-        self.diameter = 1 # robot diameter in m
+        self.diameter = 2.0 # robot diameter in m
 
         # self.umin = -20
         # self.umax = 20
@@ -32,7 +32,7 @@ class Bot(object):
         # self.umin = 0
         # self.umax = 0
 
-        self.vz = 13
+        self.vz = 7
 
         self.n_x = 6
         self.n_u = 3
@@ -82,14 +82,25 @@ class Bot(object):
 
         expr1 = x[-1][3]-v_r_des[0]
         expr2 = x[-1][4]-v_r_des[1]
-        prog.AddConstraint(expr1 == 0)
-        prog.AddConstraint(expr2 == 0)
+        # prog.AddConstraint(expr1 == 0)
+        # prog.AddConstraint(expr2 == 0)
         # prog.AddBoundingBoxConstraint(0, 0, expr1)
         # prog.AddBoundingBoxConstraint(0, 0, expr2)
 
         contacting = ((x[-1][0] - curr_ball_x[0])**2  + (x[-1][1] - curr_ball_x[1])**2)**0.5
         # prog.AddBoundingBoxConstraint(0, self.diameter/2, contacting)
-        #prog.AddConstraint(contacting <= self.diameter/3)
+        prog.AddConstraint(contacting <= self.diameter/3)
+
+    def add_contact_constraint_2(self, prog, x, N, ball):
+        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown()) # is this the ball state at whatever point it next contacts ground?
+        post_ball_vz = -1*ball.COR*(curr_ball_x[5] - self.vz)
+        v_r_des = ball.calc_robot_desired_velo(curr_ball_x[0], curr_ball_x[3], curr_ball_x[1], curr_ball_x[4], post_ball_vz, self.goal[2], self.goal[0], self.goal[1], self.vz)
+
+        expr1 = x[-1][3]-v_r_des[0]
+        expr2 = x[-1][4]-v_r_des[1]
+        prog.AddConstraint(expr1 == 0)
+        prog.AddConstraint(expr2 == 0)
+
 
     def add_2_bounce_contact_constraint(self, prog, x, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
@@ -146,14 +157,6 @@ class Bot(object):
         for k in range(N):
             prog.AddLinearConstraint(x[k][5] == self.vz) # z vel must be > 0
 
-    def add_mode_2_position_cost(self, prog, x, u, N, ball):
-        curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
-        
-        for k in range(N-1):
-            prog.AddQuadraticCost(0.1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
-            pass
-        prog.AddQuadraticCost(1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
-
 
     def add_mode_1_position_cost(self, prog, x, u, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
@@ -184,11 +187,11 @@ class Bot(object):
     def add_mode_3_position_cost(self, prog, x, u, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
         
-        for k in range(N-1):
-            prog.AddQuadraticCost(0.1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
-            #prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
-            #prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
-            pass
+        # for k in range(N-1):
+        #     prog.AddQuadraticCost(0.1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
+        #     #prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
+        #     #prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
+        #     pass
         prog.AddQuadraticCost(1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
             
             # prog.AddQuadraticCost
@@ -202,8 +205,8 @@ class Bot(object):
 
 
         #add a running cost on the last third of the horizon -> that the robot should try to accelerate towards the ball
-        for k in range(int(1*N / 3), N-1):
-            prog.AddQuadraticCost(.1*(x[k][:2]-v_r_des) @ np.identity(2) @ (x[k][:2]-v_r_des))
+        # for k in range(int(1*N / 3), N-1):
+        #     prog.AddQuadraticCost(.1*(x[k][:2]-v_r_des) @ np.identity(2) @ (x[k][:2]-v_r_des))
 
 
         
@@ -231,14 +234,15 @@ class Bot(object):
             #self.add_avoid_ball_constraints(prog, x, N, ball)
             self.add_mode_1_position_cost(prog, x, u, N, ball)
             #self.add_mode_1_velocity_cost(prog, x, u, N, ball)
-            self.add_2_bounce_contact_constraint(prog, x, N, ball)
+            #self.add_2_bounce_contact_constraint(prog, x, N, ball)
 
         elif mode == 2:
-            self.add_mode_2_position_cost(prog, x, u, N, ball)
+            self.add_mode_3_position_cost(prog, x, u, N, ball)
+            self.add_contact_constraint_2(prog, x, N, ball)
 
         elif mode == 3: # single shot. not related to the other modes
-            #self.add_contact_constraint(prog, x, N, ball)
-            self.add_mode_3_position_cost(prog, x, u, N, ball)
+            self.add_contact_constraint(prog, x, N, ball)
+            # self.add_mode_3_position_cost(prog, x, u, N, ball)
             self.add_mode_3_velocity_cost(prog, x, u, N, ball)
 
         solver = SnoptSolver()
@@ -252,4 +256,4 @@ class Bot(object):
         # v_r_des = ball.calc_robot_desired_velo(curr_ball_x[0], curr_ball_x[3], curr_ball_x[1], curr_ball_x[4], post_ball_vz, self.goal[2], self.goal[0], self.goal[1], self.vz)
         # print(np.round(v_r_des, 2))
         # print(np.round(ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], post_ball_vz, self.goal[2], self.goal[0], self.goal[1]),2))
-        return u_res, x_res
+        return u_res, x_res, result.get_optimal_cost(), result.get_solution_result()
