@@ -115,7 +115,7 @@ class Ball(object):
         v_t = rel_v - v_n
 
         # do collision
-        v_n_new = self.COR * (robot_state[2]- self.x[2]) + robot_state[2]
+        v_n_new = self.COR * (robot_state[5]- self.x[5])
         v_t_new = (1-self.mu_robot) * v_t
         # self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
         new_v = v_n_new + v_t_new + robot_state[3:]
@@ -159,6 +159,16 @@ class Ball(object):
         dy = goaly - py
 
         return np.array([dx/deltaT, dy/deltaT])
+    
+    def calc_robot_desired_velo(self, px, vx, py, vy, vz, h, goalx, goaly, vzr):
+        """
+        Calculate the desired velocity of the robot such that the ball will go in the basket
+        """
+        vz_b_f = self.COR * (vzr - vz) + vzr
+        vx_r_des = ((self.g(goalx - px) / (vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5) - vx)*(1/self.mu) + vx
+        vy_r_des = ((self.g(goaly - py) / (vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5) - vy)*(1/self.mu) + vy
+
+        return np.array([vx_r_des, vy_r_des])
 
 
 """
