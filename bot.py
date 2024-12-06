@@ -25,14 +25,14 @@ class Bot(object):
         # self.umin = -20
         # self.umax = 20
 
-        self.umin =-25
-        self.umax = 25
+        self.umin =-30
+        self.umax = 30
         # self.uminz = -200
         # self.umaxz = 200
         # self.umin = 0
         # self.umax = 0
 
-        self.vz = 7
+        self.vz = 5
 
         self.n_x = 6
         self.n_u = 3
@@ -160,14 +160,8 @@ class Bot(object):
 
     def add_mode_1_position_cost(self, prog, x, u, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
-        post_bounce_vz = -1*ball.COR*(curr_ball_x[5])
-        curr_ball_x[5] = post_bounce_vz
-        curr_ball_x[2] = 0 # ensure on ground
-        ball2 = Ball(curr_ball_x)
-        curr_ball_x = ball2.simulate_ball_no_update(ball2.get_time_to_touchdown())
-                
-        for k in range(N-1):
-            prog.AddQuadraticCost(0.1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
+        # for k in range(N-1):
+        #     prog.AddQuadraticCost(1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
         prog.AddQuadraticCost(1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
         
     def add_mode_1_velocity_cost(self, prog, x, u, N, ball):

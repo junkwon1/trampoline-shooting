@@ -17,7 +17,7 @@ x0 = np.array([0,0,0,0,0,13])
 ball_x0 = np.array([0, 0, 5, -7, -5, 7])
 
 bball = ball.Ball(ball_x0)
-tf = 50
+tf = 100
 dt = .01
 t0 = 0
 
@@ -58,6 +58,9 @@ while t[-1] < tf:
 
         if cost > 1 or cost == 0.0:
             mode = 3 # big error pick mode 3
+            _, x_res, cost, sol_result = robot.compute_MPC_feedback(current_robot_x, bball, max(int(horizon/dt), 2), mode=2)
+            if sol_result == -2:
+                mode = 1
         else:
             mode = 2
         print('picked mode ', mode, ' for this bounce!')
@@ -96,9 +99,9 @@ while t[-1] < tf:
         dt = scaled_dt
         N = max(int(horizon/dt), 2)
 
-    current_u_command, _ , cost, output= robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
-    print(output)
-    
+    current_u_command, _ , cost, output = robot.compute_MPC_feedback(current_robot_x, bball, N, mode=mode)
+    # print(output)
+
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
     # simulate the robot for robot action
     bball = ball.Ball(bball.simulate_ball(robot, current_robot_x, dt))
