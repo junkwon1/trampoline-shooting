@@ -15,17 +15,17 @@ class Bot(object):
         self.dt = 0.01
 
         #self.goal = np.array([3, 3, 10]) # change to desired goal location!
-        self.goal = np.array([0, 0, 5]) # change to desired goal location!
+        self.goal = np.array([1, 3, 2]) # change to desired goal location!
 
 
         self.m = 5
-        self.diameter = .5 # robot diameter in m
+        self.diameter = 0.5 # robot diameter in m
 
         # self.umin = -20
         # self.umax = 20
 
-        self.umin = -175
-        self.umax = 175
+        self.umin =-50
+        self.umax = 50
         # self.uminz = -200
         # self.umaxz = 200
         # self.umin = 0
@@ -72,6 +72,26 @@ class Bot(object):
 
     def discrete_time_dynamics(self, T):
         pass
+
+    def add_contact_constraint(self, prog, x, N, ball):
+        vz = ball.x[5]
+
+        tf = (vz + (vz**2 + 2 * ball.x[2]*9.81)**0.5)/(9.81)
+        curr_ball_x = ball.simulate_ball_no_update(tf) # is this the ball state at whatever point it next contacts ground?
+
+        new_ball_v = ball.robot_bounce((curr_ball_x[3:]), x[-1])
+        desired_ball_vel = ball.calc_desired_velo(curr_ball_x[0], curr_ball_x[1], new_ball_v[2], self.goal[2], self.goal[0], self.goal[1])
+        expr = np.array([new_ball_v[0] - desired_ball_vel[0], new_ball_v[1] - desired_ball_vel[1]])
+        expr1 = new_ball_v[0] - desired_ball_vel[0]
+        expr2 = new_ball_v[1] - desired_ball_vel[1]
+        prog.AddConstraint(expr1 == 0)
+        prog.AddConstraint(expr2 == 0)
+        # prog.AddBoundingBoxConstraint(0, 0, expr1)
+        # prog.AddBoundingBoxConstraint(0, 0, expr2)
+
+        contacting = ((x[-1][0] - curr_ball_x[0])**2  + (x[-1][1] - curr_ball_x[1])**2)**0.5
+        # prog.AddBoundingBoxConstraint(0, self.diameter/2, contacting)
+        prog.AddConstraint(contacting <= self.diameter/3)
 
     def add_dynamic_constraints(self, prog, x, u, N, T):
         Ac = np.identity(6) + self.A * T
@@ -140,11 +160,11 @@ class Bot(object):
     def add_mode_3_position_cost(self, prog, x, u, N, ball):
         curr_ball_x = ball.simulate_ball_no_update(ball.get_time_to_touchdown())
         for k in range(N-1):
-            prog.AddQuadraticCost(.1*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
+            prog.AddQuadraticCost(0.5*((x[k]-curr_ball_x).T) @ self.Q @ ((x[k]-curr_ball_x)))
             #prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
             #prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
             pass
-        prog.AddQuadraticCost(.1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
+        prog.AddQuadraticCost(1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
             
             # prog.AddQuadraticCost
 
@@ -163,8 +183,8 @@ class Bot(object):
 
 
         # add a running cost on the last third of the horizon -> that the robot should try to accelerate towards the ball
-        for k in range(int(1*N / 3), N-1):
-            prog.AddCost(.1*(bv_e.T) @ np.identity(2) @ bv_e)
+        # for k in range(int(1*N / 3), N-1):
+        #     prog.AddCost(.1*(bv_e.T) @ np.identity(2) @ bv_e)
 
         
         #prog.AddQuadraticCost(1*((x[N-1]-curr_ball_x).T) @ self.Q @ (x[N-1]-curr_ball_x))
@@ -185,6 +205,7 @@ class Bot(object):
         self.add_input_constraints(prog, u)
         self.add_dynamic_constraints(prog, x, u, N, self.dt)
         self.add_z_vel_constraint(prog, x, N)
+        # self.add_contact_constraint(prog, x, N, ball)
 
 
         if mode == 1: # get behind ball
@@ -200,5 +221,5 @@ class Bot(object):
         result = solver.Solve(prog)
         u_res = result.GetSolution(u[0])
         x_res = result.GetSolution(x)
-        #print(result.get_optimal_cost())
+        print(f"{result.get_solution_result()}, {result.get_optimal_cost()}, {result.get_solver_details()}")
         return u_res, x_res

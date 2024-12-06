@@ -15,8 +15,10 @@ robot = bot.Bot()
 
 x0 = np.array([0,0,0,0,0,13])
 ball_x0 = np.array([-1, -3, 5, -3, -3, 5])
+ball_x0 = np.array([-1, -1, 5, 1, 1, 10])
+
 bball = ball.Ball(ball_x0)
-tf = 15
+tf = 10
 dt = .01
 t0 = 0
 
@@ -40,6 +42,8 @@ mode = -1
 t_bounce = -1
 mode_decided = False
 
+dt_list = [dt]
+
 while t[-1] < tf:
     current_t = t[-1]
     current_robot_x = robot_x[-1]
@@ -61,6 +65,7 @@ while t[-1] < tf:
         if np.linalg.norm(xf[:3] - ball_xf[:3]) > 3 or horizon < .1:
             print(np.linalg.norm(xf[:3] - ball_xf[:3]))
             mode = 1 # big position error, pick mode 1
+            mode = 3
         else:
             mode = 3
         print('picked mode ', mode, ' for this bounce!')
@@ -74,7 +79,7 @@ while t[-1] < tf:
     elif mode == 3:
         # we want to scale the time step / increase simulation fidelity as the ball gets closer to the ground
         dt_max = .01
-        dt_min = .0005
+        dt_min = .0001
         scale_time = .3
         horizon = bball.get_time_to_touchdown()# change horizon if ball isnt moving
         scaled_dt = dt_min + (dt_max - dt_min) * (horizon / scale_time)
@@ -114,12 +119,13 @@ while t[-1] < tf:
 
     robot_x.append(new_robot_x)
     ball_x.append(bball.x)
+    dt_list.append(dt)
     u.append(current_u_command)
     t.append(t[-1] + dt)
 
     # print then break if ball touches the goal
     error = np.linalg.norm(bball.x[:3] - robot.goal)
-    if error < .25:
+    if error < .1:
        print("GOAL")
        break
     # print(t[-1])
@@ -127,6 +133,6 @@ while t[-1] < tf:
     dt = .01
     robot.dt = dt
 
-anim = create_animation(robot_x, ball_x, robot.goal, t[-1])
+anim = create_animation(robot_x, ball_x, robot.goal, t[-1], dt_list)
 # anim.save('animation.gif', writer='pillow')
 plt.show()

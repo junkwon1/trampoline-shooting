@@ -59,7 +59,7 @@ class Ball(object):
 
         if pz < 0 and vz < 0:
             # determine if we collided with ground or robot
-            if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)) or True:
+            if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
                 # then the ball is within the radius of the robot away, so it collides with the robot
                 print('robot collsion! ', 'before: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
                 vx, vy, vz = self.robot_bounce(curr_v=np.array([vx, vy, vz]), robot_state=robot_state)
@@ -117,7 +117,6 @@ class Ball(object):
         # do collision
         v_n_new = self.COR * (robot_state[2]- self.x[2]) + robot_state[2]
         v_t_new = (1-self.mu_robot) * v_t
-
         # self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
         new_v = v_n_new + v_t_new + robot_state[3:]
         
