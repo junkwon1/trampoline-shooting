@@ -115,14 +115,12 @@ class Ball(object):
         v_t = rel_v - v_n
 
         # do collision
-        v_n_new = self.COR * (robot_state[5]- self.x[5])
-        #print(v_n_new)
+        v_n_new = -self.COR * v_n
         v_t_new = (1-self.mu_robot) * v_t
+
         # self.x[3:] = v_n_new + v_t_new + self.x[3:] # TODO check that this makes sense
         new_v = v_n_new + v_t_new + robot_state[3:]
-        new_v = v_n_new + v_t_new
-
-        
+        new_v[2] = new_v[2] - robot_state[5]
         return new_v[0], new_v[1], new_v[2]
     
     def bounce(self, curr_v, n = np.array([0, 0, 1])):
@@ -153,37 +151,25 @@ class Ball(object):
         """
         Calculate the desired velocity of the ball such that it will go in the basket
         """
-        # vz = 10
         discriminant = vz**2 - 2 * 9.81 * h
         # if (discriminant >= 0):
         deltaT = (vz + discriminant**0.5) / (9.81)
-        # deltaT = 1
         dx = goalx - px
         dy = goaly - py
 
         return np.array([dx/deltaT, dy/deltaT])
-    
-    def calc_robot_desired_velo(self, px, vx, py, vy, vz, h, goalx, goaly, vzr):
-        """
-        Calculate the desired velocity of the robot such that the ball will go in the basket
-        """
-        vz_b_f = self.COR * (vzr - vz) + vzr
-        vx_r_des = ((self.g*(goalx - px) / (vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5) - vx)*(1/self.mu_robot) + vx
-        vy_r_des = ((self.g*(goaly - py) / (vz_b_f + (vz_b_f**2 - 2*self.g*h))**.5) - vy)*(1/self.mu_robot) + vy
-
-        return np.array([vx_r_des, vy_r_des])
 
 
 """
 Testing
 """
-x0 = np.array([0, 0, 0, -5, -5, -10])
-robot_state = np.array([0, 0, 0, 10, 10, 10])
-ball = Ball(x0)
-print('robot_bounce: ', ball.robot_bounce(ball.x[3:], robot_state))
-x0 = np.array([0, 0, 0, -5, -5, -10])
-ball = Ball(x0)
-print('floor_bounce: ', ball.bounce(ball.x[3:]))
+# x0 = np.array([0, 0, 0, -5, -5, -10])
+# robot_state = np.array([0, 0, 0, 10, 10, 10])
+# ball = Ball(x0)
+# print('robot_bounce: ', ball.robot_bounce(ball.x[3:], robot_state))
+# x0 = np.array([0, 0, 0, -5, -5, -10])
+# ball = Ball(x0)
+# print('floor_bounce: ', ball.bounce(ball.x[3:]))
 
 
 # x0 = np.array([3, 3, 3, 3, -5, 3])
