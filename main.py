@@ -104,7 +104,8 @@ while t[-1] < tf:
 
     current_u_real = current_u_command # NOTE NOT CLIPPING ATM
     # simulate the robot for robot action
-    bball = ball.Ball(bball.simulate_ball(robot, current_robot_x, dt))
+    new_ball_x,rb,gb = bball.simulate_ball(robot, current_robot_x, dt)
+    bball = ball.Ball(new_ball_x)
     def f(t, x):
       return robot.continuous_time_full_dynamics(current_robot_x, current_u_real)
     sol = solve_ivp(f, (0, dt), current_robot_x, first_step=dt)

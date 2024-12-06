@@ -56,7 +56,8 @@ class Ball(object):
         vx = self.x[3]
         vy = self.x[4]
         vz = self.x[5]
-
+        robot_bounce = False
+        ground_bounce = False
         if pz < 0 and vz < 0:
             # determine if we collided with ground or robot
             if (math.sqrt((px - robot_state[0])**2 + (py - robot_state[1])**2) < (robot.diameter / 2)):
@@ -65,10 +66,13 @@ class Ball(object):
                 print('robot collsion! ', 'before: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
                 vx, vy, vz = self.robot_bounce(curr_v=np.array([vx, vy, vz]), robot_state=robot_state)
                 print('robot collsion! ', 'after: ', np.array([px, py, pz]), np.array([vx, vy, vz]))
+                robot_bounce = True
+
             else:
                 print('ground collsion! ', 'before: ', np.array([vx, vy, vz]))
                 vx, vy, vz = self.bounce(curr_v=np.array([vx, vy, vz])) # update velocity according to ground bounce
                 print('ground collsion! ', 'after: ', np.array([vx, vy, vz]))
+                ground_bounce = True
         else:
             # update velocity
             vx += 0 
@@ -80,7 +84,7 @@ class Ball(object):
         pz += vz * dt
 
         self.x = np.array([px, py, pz, vx, vy, vz])
-        return np.array([px, py, pz, vx, vy, vz])
+        return np.array([px, py, pz, vx, vy, vz]), robot_bounce, ground_bounce
     
     def simulate_ball_no_update(self, tf):
         px = self.x[0]
