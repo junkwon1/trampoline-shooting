@@ -171,11 +171,11 @@ class Ball(object):
 """
 Testing
 """
-x0 = np.array([0, 0, 0, -5, -5, -10])
-robot_state = np.array([0, 0, 0, 10, 10, 15])
-ball = Ball(x0)
-print('robot_bounce: ', ball.robot_bounce(ball.x[3:], robot_state))
-print('floor_bounce: ', ball.bounce(ball.x[3:]))
+# x0 = np.array([0, 0, 0, -5, -5, -10])
+# robot_state = np.array([0, 0, 0, 10, 10, 15])
+# ball = Ball(x0)
+# print('robot_bounce: ', ball.robot_bounce(ball.x[3:], robot_state))
+# print('floor_bounce: ', ball.bounce(ball.x[3:]))
 
 # post_ball_vz = -1*ball.COR*(curr_ball_x[5] - self.vz)
 # post_ball_vz = ball.robot_bounce((curr_ball_x[3:]), x[-1])[2]
