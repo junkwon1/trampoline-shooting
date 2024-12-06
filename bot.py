@@ -24,8 +24,8 @@ class Bot(object):
         # self.umin = -20
         # self.umax = 20
 
-        self.umin = -175
-        self.umax = 175
+        self.umin = -50
+        self.umax = 50
         # self.uminz = -200
         # self.umaxz = 200
         # self.umin = 0
@@ -144,7 +144,7 @@ class Bot(object):
             #prog.AddQuadraticCost(0.001* (u[k].T) @ self.R @ (u[k]))
             #prog.AddCost(0.01*((bv_e.T) @ np.identity(2) @ bv_e))
             pass
-        prog.AddQuadraticCost(.1*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
+        prog.AddQuadraticCost(.5*((x[-1]-curr_ball_x).T) @ self.Q @ (x[-1]-curr_ball_x))
             
             # prog.AddQuadraticCost
 
@@ -163,8 +163,8 @@ class Bot(object):
 
 
         # add a running cost on the last third of the horizon -> that the robot should try to accelerate towards the ball
-        for k in range(int(1*N / 3), N-1):
-            prog.AddCost(.1*(bv_e.T) @ np.identity(2) @ bv_e)
+        # for k in range(int(1*N / 3), N-1):
+        #     prog.AddCost(.1*(bv_e.T) @ np.identity(2) @ bv_e)
 
         
         #prog.AddQuadraticCost(1*((x[N-1]-curr_ball_x).T) @ self.Q @ (x[N-1]-curr_ball_x))
@@ -188,7 +188,7 @@ class Bot(object):
 
 
         if mode == 1: # get behind ball
-            self.add_avoid_ball_constraints(prog, x, N, ball)
+            #self.add_avoid_ball_constraints(prog, x, N, ball)
             self.add_mode_1_position_cost(prog, x, u, N, ball)
 
         elif mode == 3: # single shot. not related to the other modes

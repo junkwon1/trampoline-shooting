@@ -13,9 +13,9 @@ from animator import create_animation
 robot = bot.Bot()
 
 x0 = np.array([0,0,0,0,0,13])
-ball_x0 = np.array([-1, -3, 5, -3, -3, 5])
+ball_x0 = np.array([-1, -3, 5, -2, -1, 5])
 bball = ball.Ball(ball_x0)
-tf = 15
+tf = 10
 dt = .01
 t0 = 0
 
@@ -35,7 +35,7 @@ robot_x = [x0]
 ball_x = [ball_x0]
 u = [np.zeros((3,))]
 t = [t0]
-mode = -1
+mode = 3
 t_bounce = -1
 mode_decided = False
 
@@ -48,33 +48,33 @@ while t[-1] < tf:
     # either go to the ball, without caring about velocity
     # or go to the ball, with caring about velocity
     # run mode 3 once, then check how successful the position cost was, if position error is large, then do mode 1
-    if t[-1] > t_bounce:
-        # find horizon
-        horizon = bball.get_time_to_touchdown()
-        t_bounce = t[-1] + horizon 
-        # run mode 3
-        _, x_res = robot.compute_MPC_feedback(current_robot_x, bball, max(int(horizon/dt), 2), mode=3)
-        xf = x_res[-1]
-        ball_xf = bball.simulate_ball_no_update(horizon)
+    # if t[-1] > t_bounce:
+    #     # find horizon
+    #     horizon = bball.get_time_to_touchdown()
+    #     t_bounce = t[-1] + horizon 
+    #     # run mode 3
+    #     _, x_res = robot.compute_MPC_feedback(current_robot_x, bball, max(int(horizon/dt), 2), mode=3)
+    #     xf = x_res[-1]
+    #     ball_xf = bball.simulate_ball_no_update(bball.get_time_to_touchdown())
 
-        if np.linalg.norm(xf[:3] - ball_xf[:3]) > 3 or horizon < .1:
-            print(np.linalg.norm(xf[:3] - ball_xf[:3]))
-            mode = 1 # big position error, pick mode 1
-        else:
-            mode = 3
-        print('picked mode ', mode, ' for this bounce!')
+    #     if np.linalg.norm(xf[:3] - ball_xf[:3]) > 20 or horizon < .1:
+    #         print(np.linalg.norm(xf[:3] - ball_xf[:3]))
+    #         mode = 1 # big position error, pick mode 1
+    #     else:
+    #         mode = 3
+    #     print('picked mode ', mode, ' for this bounce!')
 
 
     if mode == 1:
-        N = 50
+        N = 25
         dt = .01
         # in mode 1 just take a simple horizon, lowest sim fidelity
     
     elif mode == 3:
         # we want to scale the time step / increase simulation fidelity as the ball gets closer to the ground
         dt_max = .01
-        dt_min = .0005
-        scale_time = .3
+        dt_min = .0001
+        scale_time = .2
         horizon = bball.get_time_to_touchdown()# change horizon if ball isnt moving
         scaled_dt = dt_min + (dt_max - dt_min) * (horizon / scale_time)
         scaled_dt = np.round(scaled_dt, 4)
@@ -93,22 +93,13 @@ while t[-1] < tf:
     new_robot_x = sol.y[:,-1]
     new_robot_x[2] = 0 # keep robot on the floor
 
-    # simulate the ball after robot action is taken
     # check if mode 1 task has been accomplished
     # if mode == 1:
-    #     bvx = bball.x[3]
-    #     bvy = bball.x[4]
-    #     ball_velocity = np.array([bvx, bvy])
-    #     curr_ball_x = bball.simulate_ball_no_update(bball.get_time_to_touchdown())
-    #     # find the location 2 robot diameters away from the ball in the direction of desired movement
-    #     bpx = curr_ball_x[0]
-    #     bpy = curr_ball_x[1]
-    #     direction = (np.array([bpx, bpy]) - robot.goal[:2]) / np.linalg.norm(np.array([bpx, bpy]) - robot.goal[:2])
-    #     offset_distance = 2 * robot.diameter
-    #     goal_position = np.array([bpx, bpy]) + offset_distance * direction
-    #     if np.linalg.norm(new_robot_x[:2] - goal_position) < .3:
+    #     ball_xf = bball.simulate_ball_no_update(bball.get_time_to_touchdown())
+    #     error = (new_robot_x[0] - ball_xf[0])**2 + (new_robot_x[1] - ball_xf[1])**2 
+    #     if error < .1 and bball.x[2] > robot.goal[2]: # if the error is small enough & ball has enough airtime
     #         mode = 3
-    #         print('mode 1 done')
+    #         print('mode 1 done, switch to mode 3')
     # check if mode 2 task has been accomplished
 
     robot_x.append(new_robot_x)
